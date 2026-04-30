@@ -1,6 +1,9 @@
 import * as vscode from 'vscode';
 import { AppSyncOfflineServer } from '../../core/appsync/server';
-import { ResolverLog } from '../../shared/types';
+import { buildContext } from '../../core/appsync/contextSimulator';
+import { buildAppSyncLambdaEvent, invokeLambdaLocally } from '../../core/appsync/lambdaRunner';
+import { getConfig } from '../../shared/config';
+import { ResolverLog, IdentityType } from '../../shared/types';
 import { appSyncLogger } from '../../shared/logger';
 
 export class AppSyncPanel {
@@ -110,6 +113,81 @@ export class AppSyncPanel {
     if (msg.type === 'reloadMockData') {
       this.reloadMockData();
       return;
+    }
+
+    if (msg.type === 'debugLambda') {
+      void this.handleDebugLambda(msg);
+      return;
+    }
+  }
+
+  private async handleDebugLambda(msg: { type: string; [k: string]: unknown }): Promise<void> {
+    const { typeName, fieldName, args = {}, identity } = msg as {
+      typeName?: string;
+      fieldName?: string;
+      args?: Record<string, unknown>;
+      identity?: string;
+    };
+
+    if (!typeName || !fieldName || !this.server) {
+      this.panel.webview.postMessage({ type: 'lambdaDebugError', error: 'Server not running or missing type/field' });
+      return;
+    }
+
+    const resolverDef = this.server.getResolverDef(typeName, fieldName);
+    const lambdaHandler = resolverDef?.dataSource
+      ? this.server.getLambdaHandlerForDataSource(resolverDef.dataSource)
+      : undefined;
+
+    if (!lambdaHandler) {
+      this.panel.webview.postMessage({
+        type: 'lambdaDebugError',
+        error: `No Lambda handler configured for ${typeName}.${fieldName}. Add it to awsToolkit.appsync.lambdaHandlers.`,
+      });
+      return;
+    }
+
+    const cfg = getConfig();
+    const debugPort = cfg.appsync.lambdaDebugPort;
+    const effectiveIdentity = (identity as IdentityType) ?? 'apiKey';
+
+    const ctx = buildContext({
+      fieldName,
+      parentTypeName: typeName,
+      args: args as Record<string, unknown>,
+      source: null,
+      identityType: effectiveIdentity,
+    });
+
+    const lambdaEvent = buildAppSyncLambdaEvent(ctx);
+
+    this.panel.webview.postMessage({ type: 'lambdaDebugStarted', port: debugPort });
+
+    try {
+      const result = await invokeLambdaLocally({
+        handlerSpec: lambdaHandler,
+        event: lambdaEvent,
+        workspaceRoot: this.server.getWorkspaceRoot(),
+        debug: true,
+        debugPort,
+        onProcess: () => {
+          void vscode.debug.startDebugging(
+            vscode.workspace.workspaceFolders?.[0],
+            {
+              type: 'node',
+              name: `Debug Lambda: ${typeName}.${fieldName}`,
+              request: 'attach',
+              port: debugPort,
+              skipFiles: ['<node_internals>/**'],
+            }
+          );
+        },
+      });
+
+      this.panel.webview.postMessage({ type: 'lambdaDebugResult', result });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      this.panel.webview.postMessage({ type: 'lambdaDebugError', error: message });
     }
   }
 
@@ -351,6 +429,7 @@ export class AppSyncPanel {
         <textarea id="resolverArgs" class="vars-input" spellcheck="false" placeholder='{"id": "usr-001"}'></textarea>
         <div style="padding:8px 12px;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:8px;">
           <button id="btnRunResolver">▶ Run Resolver</button>
+          <button id="btnDebugLambda" class="secondary" title="Invoke Lambda with --inspect-brk and attach VS Code debugger">🐛 Debug Lambda</button>
         </div>
         <div style="flex:1;overflow:auto;background:#0d1117;min-height:0;">
           <pre id="resolverTrace" style="padding:12px;font-size:11px;color:var(--muted);">// Resolver trace will appear here</pre>

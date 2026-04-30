@@ -11,6 +11,7 @@ import {
   printSchema,
 } from 'graphql';
 import { AppSyncServerConfig, ResolverDefinition, ResolverLog, IdentityType } from '../../shared/types';
+import { parseHandlerSpec, LambdaHandlerSpec } from './lambdaRunner';
 import { SchemaLoader } from './schemaLoader';
 import { buildContext } from './contextSimulator';
 import { executeResolver } from './resolverEngine';
@@ -27,6 +28,7 @@ export class AppSyncOfflineServer {
   private logs: ResolverLog[] = [];
   private logListeners: Array<(log: ResolverLog) => void> = [];
   private schemaReloadListeners: Array<(sdl: string) => void> = [];
+  private lambdaHandlers: Map<string, LambdaHandlerSpec> = new Map();
 
   constructor(config: AppSyncServerConfig) {
     this.config = config;
@@ -34,6 +36,10 @@ export class AppSyncOfflineServer {
     this.app = express();
     this.setupMiddleware();
     this.seedDataSources();
+
+    for (const [dsName, spec] of Object.entries(config.lambdaHandlers ?? {})) {
+      this.lambdaHandlers.set(dsName, parseHandlerSpec(spec));
+    }
   }
 
   private setupMiddleware(): void {
@@ -70,6 +76,14 @@ export class AppSyncOfflineServer {
     }
   }
 
+  getResolverDef(typeName: string, fieldName: string): ResolverDefinition | undefined {
+    return this.resolverDefs.find(r => r.typeName === typeName && r.fieldName === fieldName);
+  }
+
+  getLambdaHandlerForDataSource(dataSourceName: string): LambdaHandlerSpec | undefined {
+    return this.lambdaHandlers.get(dataSourceName);
+  }
+
   reloadMockData(): void {
     inMemoryStore.clearAll();
     this.seedDataSources();
@@ -103,6 +117,10 @@ export class AppSyncOfflineServer {
     const traceId = `trace-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
     try {
+      const lambdaHandler = resolverDef?.dataSource
+        ? this.getLambdaHandlerForDataSource(resolverDef.dataSource)
+        : undefined;
+
       const result = await executeResolver({
         typeName,
         fieldName,
@@ -113,6 +131,8 @@ export class AppSyncOfflineServer {
         responseCode: resolverDef?.responseMappingTemplate,
         dataSourceName: resolverDef?.dataSource,
         resolverType: resolverDef?.resolverType,
+        lambdaHandler,
+        workspaceRoot: this.config.workspaceRoot,
         traceId,
         identityType: effectiveIdentity,
       });
@@ -164,6 +184,10 @@ export class AppSyncOfflineServer {
             identityType: effectiveIdentity,
           });
 
+          const lambdaHandler = resolverDef?.dataSource
+            ? this.getLambdaHandlerForDataSource(resolverDef.dataSource)
+            : undefined;
+
           const result = await executeResolver({
             typeName,
             fieldName,
@@ -174,6 +198,8 @@ export class AppSyncOfflineServer {
             responseCode: resolverDef?.responseMappingTemplate,
             dataSourceName: resolverDef?.dataSource,
             resolverType: resolverDef?.resolverType,
+            lambdaHandler,
+            workspaceRoot: this.config.workspaceRoot,
             traceId,
             identityType: effectiveIdentity,
           });
@@ -290,5 +316,9 @@ export class AppSyncOfflineServer {
 
   getSchemaSDL(): string {
     return this.schema ? printSchema(this.schema) : '';
+  }
+
+  getWorkspaceRoot(): string {
+    return this.config.workspaceRoot ?? '';
   }
 }

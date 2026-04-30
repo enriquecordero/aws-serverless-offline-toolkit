@@ -540,6 +540,36 @@
         traceEl.textContent = lines.join('\n');
     }
 
+    function debugLambda() {
+        var picker = document.getElementById('resolverPicker');
+        var argsEl = document.getElementById('resolverArgs');
+        var identityEl = document.getElementById('resolverIdentity');
+        var traceEl = document.getElementById('resolverTrace');
+
+        if (!picker || !traceEl) return;
+        if (!vscodeApi) { if (traceEl) traceEl.textContent = '// vscodeApi not available.'; return; }
+
+        var resolverName = (picker.value || '').trim();
+        if (!resolverName || !resolverName.includes('.')) {
+            traceEl.textContent = '// Enter a resolver as Type.Field (e.g. Query.getItem)'; return;
+        }
+
+        var parts = resolverName.split('.');
+        var typeName = parts[0];
+        var fieldName = parts.slice(1).join('.');
+        var identity = (identityEl && identityEl.value) || 'apiKey';
+
+        var args = {};
+        if (argsEl && argsEl.value.trim()) {
+            try { args = JSON.parse(argsEl.value.trim()); } catch (_) {
+                traceEl.textContent = '// Invalid JSON in Arguments field.'; return;
+            }
+        }
+
+        traceEl.textContent = '// Starting debug session for ' + resolverName + '...\n// Waiting for VS Code debugger to attach...';
+        vscodeApi.postMessage({ type: 'debugLambda', typeName: typeName, fieldName: fieldName, args: args, identity: identity });
+    }
+
     function runResolver() {
         var picker = document.getElementById('resolverPicker');
         var argsEl = document.getElementById('resolverArgs');
@@ -620,6 +650,38 @@
             if (data.type === 'mockDataReloaded') {
                 setBanner('✓ Mock data reloaded', '#1c2a1c', '#56d364');
             }
+            if (data.type === 'lambdaDebugStarted') {
+                var traceEl = document.getElementById('resolverTrace');
+                if (traceEl) traceEl.textContent = '// Debug session started on port ' + data.port + '\n// Set breakpoints and resume in the VS Code debugger panel...';
+                setBanner('🐛 Lambda debug session active — use VS Code Debug panel to step through', '#1c2533', '#79c0ff');
+            }
+            if (data.type === 'lambdaDebugResult') {
+                var r = data.result || {};
+                var traceEl = document.getElementById('resolverTrace');
+                if (traceEl) {
+                    var lines = ['// Debug session complete'];
+                    if (r.error) {
+                        lines.push('// ERROR: ' + r.error);
+                        if (r.stack) lines.push('// ' + String(r.stack).split('\n').slice(0, 4).join('\n// '));
+                    } else {
+                        lines.push('// Result:');
+                        lines.push(JSON.stringify(r.result !== undefined ? r.result : null, null, 2));
+                    }
+                    if (r.logs && r.logs.length) {
+                        lines.push('');
+                        lines.push('// Lambda stderr:');
+                        r.logs.forEach(function (l) { lines.push('//   ' + l); });
+                    }
+                    traceEl.textContent = lines.join('\n');
+                }
+                setBanner('✓ Lambda debug session complete', '#1c2a1c', '#56d364');
+                refreshLogs();
+            }
+            if (data.type === 'lambdaDebugError') {
+                var traceEl = document.getElementById('resolverTrace');
+                if (traceEl) traceEl.textContent = '// Debug error: ' + escapeHtml(data.error || 'Unknown error');
+                setBanner('✗ Lambda debug failed: ' + (data.error || '?'), '#2a1c1c', '#f78166');
+            }
             if (data.type === 'hydrateState' && data.state) {
                 var s = data.state;
                 if (queryInput && typeof s.query === 'string') queryInput.value = s.query;
@@ -655,6 +717,7 @@
         wire('tabSchema', function () { showSidePanel('schema'); });
         wire('btnClearLogs', clearLogs);
         wire('btnRunResolver', runResolver);
+        wire('btnDebugLambda', debugLambda);
         wire('resolverHistoryToggle', function () {
             var listEl = document.getElementById('resolverHistoryList');
             var chevron = document.getElementById('resolverHistoryChevron');

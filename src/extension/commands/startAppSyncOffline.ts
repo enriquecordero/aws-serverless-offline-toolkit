@@ -41,6 +41,8 @@ export async function startAppSyncOffline(): Promise<void> {
       resolversDir: discovered.resolversDir,
       dataSources: discovered.dataSources,
       identity: { type: cfg.appsync.mockIdentity },
+      lambdaHandlers: cfg.appsync.lambdaHandlers,
+      workspaceRoot: discovered.workspaceRoot,
     });
 
     await server.start();

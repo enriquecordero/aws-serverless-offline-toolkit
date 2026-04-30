@@ -3,6 +3,7 @@ import { AppSyncContext, ResolverLog } from '../../shared/types';
 import { $util } from './contextSimulator';
 import { inMemoryStore } from './dataSources/inMemoryDataSource';
 import { evaluateVtl, VtlError } from './vtlEvaluator';
+import { LambdaHandlerSpec, invokeLambdaLocally, buildAppSyncLambdaEvent } from './lambdaRunner';
 
 export interface ResolverResult {
   data: unknown;
@@ -62,6 +63,8 @@ export async function executeResolver(opts: {
   responseCode?: string;
   dataSourceName?: string;
   resolverType?: 'JS' | 'VTL';
+  lambdaHandler?: LambdaHandlerSpec;
+  workspaceRoot?: string;
   traceId?: string;
   identityType?: string;
 }): Promise<ResolverResult> {
@@ -106,8 +109,32 @@ export async function executeResolver(opts: {
     return { data: null, logs, errors };
   }
 
-  // Phase 2: data source resolution (simplified in-memory dispatch)
-  const dsResult = resolveDataSource(opts.dataSourceName ?? 'NONE', requestResult as Record<string, unknown>);
+  // Phase 2: data source resolution
+  let dsResult: unknown;
+  if (opts.lambdaHandler) {
+    const lambdaEvent = buildAppSyncLambdaEvent(ctx);
+    const dsStart = Date.now();
+    const lambdaResult = await invokeLambdaLocally({
+      handlerSpec: opts.lambdaHandler,
+      event: lambdaEvent,
+      workspaceRoot: opts.workspaceRoot ?? '',
+    });
+    logs.push({
+      timestamp: new Date().toISOString(),
+      typeName, fieldName, phase: lambdaResult.error ? 'error' : 'response',
+      input: lambdaEvent,
+      output: lambdaResult.error ? { error: lambdaResult.error } : lambdaResult.result,
+      durationMs: lambdaResult.durationMs || (Date.now() - dsStart),
+      traceId, identityType,
+    });
+    if (lambdaResult.error) {
+      errors.push({ message: lambdaResult.error, type: 'LambdaError' });
+      return { data: null, logs, errors };
+    }
+    dsResult = lambdaResult.result;
+  } else {
+    dsResult = resolveDataSource(opts.dataSourceName ?? 'NONE', requestResult as Record<string, unknown>);
+  }
   ctx.result = dsResult;
 
   // Phase 3: response

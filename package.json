@@ -142,6 +142,19 @@
           "default": "",
           "description": "Optional mock-data JSON file path. Absolute or relative to a workspace folder."
         },
+        "awsToolkit.appsync.lambdaHandlers": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Map of data source name to handler spec. Example: { \"MyLambdaDS\": \"src/handlers/resolver.ts#handler\" }"
+        },
+        "awsToolkit.appsync.lambdaDebugPort": {
+          "type": "number",
+          "default": 9229,
+          "description": "Port for Lambda debug sessions (--inspect-brk). Must match VS Code's attach debugger port."
+        },
         "awsToolkit.cdkDiff.stackName": {
           "type": "string",
           "default": "",

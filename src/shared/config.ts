@@ -10,6 +10,8 @@ export function getConfig() {
       schemaPath: cfg.get<string>('appsync.schemaPath', ''),
       resolversPath: cfg.get<string>('appsync.resolversPath', ''),
       mockDataPath: cfg.get<string>('appsync.mockDataPath', ''),
+      lambdaHandlers: cfg.get<Record<string, string>>('appsync.lambdaHandlers', {}),
+      lambdaDebugPort: cfg.get<number>('appsync.lambdaDebugPort', 9229),
     },
     cdkDiff: {
       stackName: cfg.get<string>('cdkDiff.stackName', ''),

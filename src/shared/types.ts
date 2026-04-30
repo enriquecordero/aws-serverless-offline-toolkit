@@ -59,6 +59,8 @@ export interface AppSyncServerConfig {
   resolversDir?: string;
   dataSources: MockDataSource[];
   identity: AppSyncIdentity;
+  lambdaHandlers?: Record<string, string>; // dataSourceName → "path/to/handler.ts#exportName"
+  workspaceRoot?: string;
 }
 
 export interface ResolverLog {

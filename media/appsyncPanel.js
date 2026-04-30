@@ -6,7 +6,7 @@
     let vscodeApi = null;
     let serverPort = null;
     let currentSchema = '';
-    let panelState = { query: '', variables: '{}', history: [] };
+    let panelState = { query: '', variables: '{}', history: [], resolverHistory: [] };
     const RESPONSE_DEFAULT_HEIGHT = 200;
     const RESPONSE_MIN_HEIGHT = 100;
     const RESPONSE_MAX_HEIGHT = 560;
@@ -63,6 +63,7 @@
             query: (queryInput && queryInput.value) || '',
             variables: (varsInput && varsInput.value) || '{}',
             history: queryHistory,
+            resolverHistory: resolverHistory,
         };
         vscodeApi.postMessage({ type: 'persistState', state: panelState });
     }
@@ -296,7 +297,57 @@
         schemaOutput.innerHTML = highlightSdl(lines.join('\n'));
     }
 
-    // ── History ──────────────────────────────────────────────────────────────
+    // ── Resolver run history ──────────────────────────────────────────────────
+
+    var resolverHistory = [];
+    var RESOLVER_HISTORY_MAX = 20;
+
+    function saveResolverRun(run) {
+        resolverHistory = [run].concat(resolverHistory.filter(function (r) {
+            return !(r.typeName === run.typeName && r.fieldName === run.fieldName && r.identity === run.identity);
+        })).slice(0, RESOLVER_HISTORY_MAX);
+        persistPanelState();
+        renderResolverHistory();
+    }
+
+    function renderResolverHistory() {
+        var listEl = document.getElementById('resolverHistoryList');
+        if (!listEl) return;
+        if (!resolverHistory.length) {
+            listEl.innerHTML = '<div style="padding:8px 12px;color:var(--muted);font-size:11px;">No runs yet.</div>';
+            return;
+        }
+        const colors = { apiKey: '#e3b341', cognitoUser: '#79c0ff', iam: '#f0883e', admin: '#f85149', guest: '#8b949e' };
+        listEl.innerHTML = resolverHistory.map(function (run, i) {
+            const color = colors[run.identity] || '#8b949e';
+            const icon = run.success ? '<span style="color:#56d364;">✓</span>' : '<span style="color:#f78166;">✗</span>';
+            const ts = run.timestamp ? new Date(run.timestamp).toLocaleTimeString() : '';
+            return '<div class="history-item" data-idx="' + i + '" style="display:flex;gap:6px;align-items:center;">' +
+                icon +
+                '<span style="color:var(--accent2);font-size:11px;">' + escapeHtml(run.typeName + '.' + run.fieldName) + '</span>' +
+                '<span style="background:' + color + '20;color:' + color + ';border:1px solid ' + color + '40;padding:1px 5px;border-radius:3px;font-size:9px;">' + escapeHtml(run.identity) + '</span>' +
+                '<span style="margin-left:auto;color:var(--muted);font-size:10px;">' + ts + '</span>' +
+                '</div>';
+        }).join('');
+        listEl.querySelectorAll('.history-item').forEach(function (el) {
+            el.addEventListener('click', function () {
+                loadResolverHistoryEntry(parseInt(el.getAttribute('data-idx') || '0', 10));
+            });
+        });
+    }
+
+    function loadResolverHistoryEntry(idx) {
+        var run = resolverHistory[idx];
+        if (!run) return;
+        var picker = document.getElementById('resolverPicker');
+        var identityEl = document.getElementById('resolverIdentity');
+        var argsEl = document.getElementById('resolverArgs');
+        if (picker) picker.value = run.typeName + '.' + run.fieldName;
+        if (identityEl) identityEl.value = run.identity;
+        if (argsEl) argsEl.value = run.args ? JSON.stringify(run.args, null, 2) : '{}';
+    }
+
+    // ── Query history ─────────────────────────────────────────────────────────
 
     var queryHistory = [];
     var HISTORY_MAX = 30;
@@ -446,65 +497,93 @@
 
     // ── Resolver Runner ───────────────────────────────────────────────────────
 
+    function diagnoseError(msg) {
+        if (!msg) return '';
+        if (/Cannot read propert/i.test(msg)) return 'Tip: the data source returned null or an unexpected shape. Check mock-data.json.';
+        if (/is not defined/i.test(msg)) return 'Tip: the resolver references an undefined variable. Check the resolver code.';
+        if (/SyntaxError/i.test(msg)) return 'Tip: the resolver code has a syntax error.';
+        if (/No resolver found/i.test(msg)) return 'Tip: no resolver file was found for this Type.Field.';
+        if (/\[VTL\]/i.test(msg)) return 'Tip: the VTL template raised an error. Check $util.error() calls and condition branches.';
+        return '';
+    }
+
+    function renderResolverTrace(resolverName, identity, result) {
+        var traceEl = document.getElementById('resolverTrace');
+        if (!traceEl) return;
+        var lines = [];
+        var hasErrors = result.errors && result.errors.length > 0;
+        lines.push('// Resolver: ' + resolverName + '   identity: ' + identity);
+        lines.push('');
+        if (result.logs && result.logs.length) {
+            result.logs.forEach(function (log) {
+                lines.push('// [' + (log.phase || '?').toUpperCase() + '] ' + (log.durationMs || 0) + 'ms');
+                if (log.input !== undefined && log.input !== null) {
+                    lines.push('//   in:  ' + JSON.stringify(log.input).slice(0, 300));
+                }
+                if (log.output !== undefined && log.output !== null) {
+                    lines.push('//   out: ' + JSON.stringify(log.output).slice(0, 300));
+                }
+                lines.push('');
+            });
+        }
+        if (hasErrors) {
+            lines.push('// ERRORS:');
+            result.errors.forEach(function (e) {
+                lines.push('// ' + (e.type ? '[' + e.type + '] ' : '') + (e.message || String(e)));
+                var tip = diagnoseError(e.message);
+                if (tip) lines.push('// ' + tip);
+            });
+            lines.push('');
+        }
+        lines.push('// Response:');
+        lines.push(JSON.stringify(result.data !== undefined ? result.data : null, null, 2));
+        traceEl.textContent = lines.join('\n');
+    }
+
     function runResolver() {
-        const picker = document.getElementById('resolverPicker');
-        const argsEl = document.getElementById('resolverArgs');
-        const identityEl = document.getElementById('resolverIdentity');
-        const traceEl = document.getElementById('resolverTrace');
+        var picker = document.getElementById('resolverPicker');
+        var argsEl = document.getElementById('resolverArgs');
+        var identityEl = document.getElementById('resolverIdentity');
+        var traceEl = document.getElementById('resolverTrace');
 
         if (!picker || !traceEl) return;
         if (!serverPort) { if (traceEl) traceEl.textContent = '// Server not running.'; return; }
 
-        const resolverName = (picker.value || '').trim();
+        var resolverName = (picker.value || '').trim();
         if (!resolverName || !resolverName.includes('.')) {
             traceEl.textContent = '// Enter a resolver as Type.Field (e.g. Query.getItem)'; return;
         }
 
-        const parts = resolverName.split('.');
-        const typeName = parts[0];
-        const fieldName = parts.slice(1).join('.');
-        const identity = (identityEl && identityEl.value) || 'apiKey';
+        var parts = resolverName.split('.');
+        var typeName = parts[0];
+        var fieldName = parts.slice(1).join('.');
+        var identity = (identityEl && identityEl.value) || 'apiKey';
 
-        let args = {};
+        var args = {};
         if (argsEl && argsEl.value.trim()) {
             try { args = JSON.parse(argsEl.value.trim()); } catch (_) {
                 traceEl.textContent = '// Invalid JSON in Arguments field.'; return;
             }
         }
 
-        // Build a minimal query for the resolver
-        const query = 'query ResolverRun { ' + fieldName + ' }';
-        const variables = Object.keys(args).length ? args : undefined;
-
         traceEl.textContent = '// Running ' + resolverName + ' as ' + identity + '...';
 
-        fetch('http://localhost:' + serverPort + '/graphql', {
+        fetch('http://localhost:' + serverPort + '/direct-resolve', {
             method: 'POST',
-            headers: buildHeaders(identity),
-            body: JSON.stringify({ query: query, variables: variables })
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ typeName: typeName, fieldName: fieldName, args: args, identity: identity })
         })
             .then(function (res) { return res.json(); })
-            .then(function (data) {
-                // Pull trace logs for this execution
-                return refreshLogs().then(function () {
-                    const traceLogs = allLogs.filter(function (l) {
-                        return l.typeName === typeName && l.fieldName === fieldName;
-                    }).slice(0, 6);
-
-                    var lines = ['// Resolver: ' + resolverName + ' — identity: ' + identity, ''];
-                    traceLogs.forEach(function (log) {
-                        lines.push('// [' + log.phase.toUpperCase() + '] ' + log.durationMs + 'ms');
-                        lines.push('// input:  ' + JSON.stringify(log.input).slice(0, 200));
-                        lines.push('// output: ' + JSON.stringify(log.output).slice(0, 200));
-                        lines.push('');
-                    });
-                    lines.push('// Response:');
-                    lines.push(JSON.stringify(data, null, 2));
-                    traceEl.textContent = lines.join('\n');
-                });
+            .then(function (result) {
+                var success = !result.errors || result.errors.length === 0;
+                saveResolverRun({ typeName: typeName, fieldName: fieldName, identity: identity, args: args, success: success, timestamp: Date.now() });
+                renderResolverTrace(resolverName, identity, result);
+                return refreshLogs();
             })
             .catch(function (err) {
-                traceEl.textContent = '// Error: ' + ((err && err.message) ? err.message : String(err));
+                var msg = (err && err.message) ? err.message : String(err);
+                if (traceEl) traceEl.textContent = '// Network error: ' + msg;
+                saveResolverRun({ typeName: typeName, fieldName: fieldName, identity: identity, args: args, success: false, timestamp: Date.now() });
             });
     }
 
@@ -546,6 +625,7 @@
                 if (queryInput && typeof s.query === 'string') queryInput.value = s.query;
                 if (varsInput && typeof s.variables === 'string') varsInput.value = s.variables;
                 if (Array.isArray(s.history)) queryHistory = s.history;
+                if (Array.isArray(s.resolverHistory)) resolverHistory = s.resolverHistory;
                 syncEditor();
             }
         });
@@ -575,6 +655,15 @@
         wire('tabSchema', function () { showSidePanel('schema'); });
         wire('btnClearLogs', clearLogs);
         wire('btnRunResolver', runResolver);
+        wire('resolverHistoryToggle', function () {
+            var listEl = document.getElementById('resolverHistoryList');
+            var chevron = document.getElementById('resolverHistoryChevron');
+            if (!listEl) return;
+            var open = listEl.style.display === 'none' || listEl.style.display === '';
+            listEl.style.display = open ? 'block' : 'none';
+            if (chevron) chevron.textContent = open ? '▼' : '▶';
+            if (open) renderResolverHistory();
+        });
 
         var schemaSearchEl = document.getElementById('schemaSearch');
         if (schemaSearchEl) schemaSearchEl.addEventListener('input', function () { filterSchema(this.value); });

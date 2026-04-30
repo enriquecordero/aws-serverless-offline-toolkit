@@ -2,6 +2,7 @@ import * as vm from 'vm';
 import { AppSyncContext, ResolverLog } from '../../shared/types';
 import { $util } from './contextSimulator';
 import { inMemoryStore } from './dataSources/inMemoryDataSource';
+import { evaluateVtl, VtlError } from './vtlEvaluator';
 
 export interface ResolverResult {
   data: unknown;
@@ -60,6 +61,7 @@ export async function executeResolver(opts: {
   requestCode?: string;
   responseCode?: string;
   dataSourceName?: string;
+  resolverType?: 'JS' | 'VTL';
   traceId?: string;
   identityType?: string;
 }): Promise<ResolverResult> {
@@ -67,14 +69,22 @@ export async function executeResolver(opts: {
   const errors: Array<{ message: string; type?: string }> = [];
   let result: unknown = null;
 
-  const { typeName, fieldName, ctx, requestCode, responseCode, traceId, identityType } = opts;
+  const { typeName, fieldName, ctx, requestCode, responseCode, resolverType, traceId, identityType } = opts;
+  const isVtl = resolverType === 'VTL';
+  // VTL resolvers use $ctx.args as alias for $ctx.arguments
+  const vtlCtx = isVtl ? { ...ctx, args: ctx.arguments } : ctx;
 
   // Phase 1: request
   let requestResult: unknown;
   const reqStart = Date.now();
   try {
     if (requestCode) {
-      requestResult = runResolverFunction(requestCode, ctx, 'request');
+      if (isVtl) {
+        const rendered = evaluateVtl(requestCode, vtlCtx).trim();
+        requestResult = rendered ? JSON.parse(rendered) : {};
+      } else {
+        requestResult = runResolverFunction(requestCode, ctx, 'request');
+      }
     } else {
       requestResult = defaultResolver(ctx);
     }
@@ -85,8 +95,8 @@ export async function executeResolver(opts: {
       durationMs: Date.now() - reqStart, traceId, identityType,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push({ message: msg, type: 'RequestError' });
+    const msg = err instanceof VtlError ? `[VTL] ${err.message}` : (err instanceof Error ? err.message : String(err));
+    errors.push({ message: msg, type: err instanceof VtlError ? (err.vtlType ?? 'VtlError') : 'RequestError' });
     logs.push({
       timestamp: new Date().toISOString(),
       typeName, fieldName, phase: 'error',
@@ -104,7 +114,17 @@ export async function executeResolver(opts: {
   const resStart = Date.now();
   try {
     if (responseCode) {
-      result = runResolverFunction(responseCode, ctx, 'response');
+      if (isVtl) {
+        const vtlCtxWithResult = { ...vtlCtx, result: dsResult };
+        const rendered = evaluateVtl(responseCode, vtlCtxWithResult).trim();
+        if (rendered) {
+          try { result = JSON.parse(rendered); } catch { result = rendered; }
+        } else {
+          result = dsResult;
+        }
+      } else {
+        result = runResolverFunction(responseCode, ctx, 'response');
+      }
     } else {
       result = ctx.result;
     }
@@ -115,8 +135,8 @@ export async function executeResolver(opts: {
       durationMs: Date.now() - resStart, traceId, identityType,
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : String(err);
-    errors.push({ message: msg, type: 'ResponseError' });
+    const msg = err instanceof VtlError ? `[VTL] ${err.message}` : (err instanceof Error ? err.message : String(err));
+    errors.push({ message: msg, type: err instanceof VtlError ? (err.vtlType ?? 'VtlError') : 'ResponseError' });
     logs.push({
       timestamp: new Date().toISOString(),
       typeName, fieldName, phase: 'error',

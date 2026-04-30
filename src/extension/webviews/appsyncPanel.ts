@@ -355,6 +355,13 @@ export class AppSyncPanel {
         <div style="flex:1;overflow:auto;background:#0d1117;min-height:0;">
           <pre id="resolverTrace" style="padding:12px;font-size:11px;color:var(--muted);">// Resolver trace will appear here</pre>
         </div>
+        <div style="border-top:1px solid var(--border);flex-shrink:0;">
+          <div id="resolverHistoryToggle" style="padding:6px 12px;display:flex;justify-content:space-between;align-items:center;cursor:pointer;background:var(--surface);font-size:11px;color:var(--muted);">
+            <span>Recent Runs</span>
+            <span id="resolverHistoryChevron">▶</span>
+          </div>
+          <div id="resolverHistoryList" style="display:none;max-height:140px;overflow-y:auto;background:#0d1117;"></div>
+        </div>
       </div>
 
       <div class="actions">

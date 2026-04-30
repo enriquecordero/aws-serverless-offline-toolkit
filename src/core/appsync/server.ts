@@ -10,7 +10,7 @@ import {
   defaultFieldResolver,
   printSchema,
 } from 'graphql';
-import { AppSyncServerConfig, ResolverDefinition, ResolverLog } from '../../shared/types';
+import { AppSyncServerConfig, ResolverDefinition, ResolverLog, IdentityType } from '../../shared/types';
 import { SchemaLoader } from './schemaLoader';
 import { buildContext } from './contextSimulator';
 import { executeResolver } from './resolverEngine';
@@ -53,6 +53,9 @@ export class AppSyncOfflineServer {
     this.app.get('/logs', (_req, res) => {
       res.json(this.logs.slice(-100));
     });
+
+    // Direct resolver execution — bypasses GraphQL layer, args passed as plain JSON
+    this.app.post('/direct-resolve', this.handleDirectResolve.bind(this));
   }
 
   private seedDataSources(): void {
@@ -71,6 +74,59 @@ export class AppSyncOfflineServer {
     inMemoryStore.clearAll();
     this.seedDataSources();
     console.log('[AppSync Offline] Mock data reloaded ✓');
+  }
+
+  private async handleDirectResolve(req: Request, res: Response): Promise<void> {
+    const { typeName, fieldName, args = {}, identity } = req.body as {
+      typeName?: string;
+      fieldName?: string;
+      args?: Record<string, unknown>;
+      identity?: string;
+    };
+
+    if (!typeName || !fieldName) {
+      res.status(400).json({ error: 'typeName and fieldName are required' });
+      return;
+    }
+
+    const resolverDef = this.resolverDefs.find(r => r.typeName === typeName && r.fieldName === fieldName);
+    const effectiveIdentity = (identity as IdentityType) ?? this.config.identity.type;
+
+    const ctx = buildContext({
+      fieldName,
+      parentTypeName: typeName,
+      args: args as Record<string, unknown>,
+      source: null,
+      identityType: effectiveIdentity,
+    });
+
+    const traceId = `trace-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
+    try {
+      const result = await executeResolver({
+        typeName,
+        fieldName,
+        args: args as Record<string, unknown>,
+        source: null,
+        ctx,
+        requestCode: resolverDef?.requestMappingTemplate,
+        responseCode: resolverDef?.responseMappingTemplate,
+        dataSourceName: resolverDef?.dataSource,
+        resolverType: resolverDef?.resolverType,
+        traceId,
+        identityType: effectiveIdentity,
+      });
+
+      for (const log of result.logs) {
+        this.logs.push(log);
+        this.logListeners.forEach(fn => fn(log));
+      }
+
+      res.json(result);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: msg });
+    }
   }
 
   private buildResolvers(): Record<string, Record<string, GraphQLFieldResolver<unknown, unknown>>> {
@@ -117,6 +173,7 @@ export class AppSyncOfflineServer {
             requestCode: resolverDef?.requestMappingTemplate,
             responseCode: resolverDef?.responseMappingTemplate,
             dataSourceName: resolverDef?.dataSource,
+            resolverType: resolverDef?.resolverType,
             traceId,
             identityType: effectiveIdentity,
           });

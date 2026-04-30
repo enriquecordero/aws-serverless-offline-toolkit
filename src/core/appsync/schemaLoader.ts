@@ -100,22 +100,31 @@ export class SchemaLoader {
   private loadResolverFiles(): ResolverDefinition[] {
     const resolvers: ResolverDefinition[] = [];
 
-    // Convention: resolvers/<TypeName>.<fieldName>.request.js and .response.js
+    // Convention: resolvers/<TypeName>.<fieldName>.request.(js|ts|vtl) and .response.(js|ts|vtl)
     const files = fs.readdirSync(this.resolversDir)
-      .filter(f => f.endsWith('.js') || f.endsWith('.ts'));
+      .filter(f => f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.vtl'));
 
     const grouped: Record<string, Partial<ResolverDefinition>> = {};
 
     for (const file of files) {
-      // Expected: Query.getItem.request.js  or  Mutation.createItem.response.js
-      const baseName = file.replace(/\.(js|ts)$/i, '');
+      // Expected: Query.getItem.request.js  or  Mutation.createItem.response.vtl
+      const baseName = file.replace(/\.(js|ts|vtl)$/i, '');
       const parts = baseName.split('.');
       if (parts.length < 3) { continue; }
 
       const [typeName, fieldName, phase] = parts;
       const key = `${typeName}.${fieldName}`;
+      const isVtl = file.endsWith('.vtl');
+
       if (!grouped[key]) {
-        grouped[key] = { typeName, fieldName, dataSource: typeName === 'Query' ? 'QueryDS' : 'MutationDS' };
+        grouped[key] = {
+          typeName,
+          fieldName,
+          dataSource: typeName === 'Query' ? 'QueryDS' : 'MutationDS',
+          resolverType: isVtl ? 'VTL' : 'JS',
+        };
+      } else if (isVtl) {
+        grouped[key].resolverType = 'VTL';
       }
 
       const code = fs.readFileSync(path.join(this.resolversDir, file), 'utf-8');

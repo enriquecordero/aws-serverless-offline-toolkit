@@ -40,9 +40,10 @@ export interface AppSyncContext {
 export interface ResolverDefinition {
   typeName: string;
   fieldName: string;
-  requestMappingTemplate?: string; // JS resolver code
+  requestMappingTemplate?: string;
   responseMappingTemplate?: string;
   dataSource: string;
+  resolverType?: 'JS' | 'VTL';
 }
 
 export interface MockDataSource {

@@ -31,7 +31,8 @@ Build a fast pre-deploy validation toolkit for AWS CDK projects that validates i
 - ✅ Completed: Initial IAM checks for wildcard action/resource patterns.
 - ✅ Completed: Guided flow when `cdk.out` is missing (prompt to run `cdk synth`).
 - ✅ Completed: Logs panel filters (phase + resolver search) in AppSync Offline Studio.
-- 🔄 In progress: Expand preflight from initial checks to full readiness report (confidence scoring + broader service coverage).
+- ✅ Completed: CDK Preflight webview with confidence score (0–100) and readiness label.
+- ✅ Completed: Environment Variable Preflight — classifies Lambda env vars from `cdk.out`, supports `.env.local` overrides.
 
 ## Phase 1 - Resolver Debugging Foundation
 
@@ -132,9 +133,7 @@ Add transparent debugging support for VTL request/response templates.
 
 ## Phase 5 - CDK Preflight Report
 
-### Status
-
-In progress (MVP delivered)
+**Status:** ✅ Complete
 
 ### Goal
 
@@ -153,14 +152,14 @@ Produce a full stack readiness report from synthesized `cdk.out` artifacts befor
 - ✅ `AWS: Validate Stack Intent (cdk.out)` command.
 - ✅ `AWS: Synth and Validate Stack Intent` command.
 - ✅ Markdown preflight report with findings grouped by severity.
-- ⬜ Dedicated preflight webview with per-resource findings.
-- ⬜ Confidence score and full stack readiness summary.
+- ✅ Dedicated preflight webview with per-resource findings.
+- ✅ Confidence score and full stack readiness summary.
 
 ### Exit Criteria
 
-- ⬜ A developer can run one command and get a confidence score for the stack before pushing to CI.
-- 🔄 Critical wiring issues are partially covered locally (AppSync/Lambda/Dynamo/IAM wildcard checks).
-- ⬜ Missing env vars and advanced IAM gaps are fully covered.
+- ✅ A developer can run one command and get a confidence score for the stack before pushing to CI.
+- ✅ Critical wiring issues are covered locally (AppSync/Lambda/Dynamo/IAM wildcard checks).
+- ✅ Missing env vars covered via Phase 13.
 
 ## Phase 6 - Lambda Local Runner
 
@@ -340,6 +339,8 @@ Populate the AppSync Offline Studio's in-memory store from CDK-derived table def
 
 ## Phase 13 - Environment Variable Preflight
 
+**Status:** ✅ Complete
+
 ### Goal
 
 Validate that every environment variable declared in Lambda definitions within `cdk.out` has a resolvable value before deployment, catching missing configuration before it causes a runtime failure.
@@ -355,14 +356,14 @@ Validate that every environment variable declared in Lambda definitions within `
 
 ### Outputs
 
-- `AWS: Validate Environment Variables` command.
-- Report listing each Lambda, its declared variables, their resolution status (resolved / missing / unresolvable), and the source type.
-- Warning when a variable references an SSM path that does not exist in the current environment.
+- ✅ `AWS: Validate Environment Variables` command.
+- ✅ Report listing each Lambda, its declared variables, their resolution status (resolved / missing / unresolvable), and the source type.
+- ✅ `.env.local` override support with per-Lambda snippet suggestions.
 
 ### Exit Criteria
 
-- A developer can confirm all Lambda environment variables are resolvable before triggering a deployment.
-- Missing SSM parameters and broken cross-stack references are surfaced with the exact variable name and Lambda function affected.
+- ✅ A developer can confirm all Lambda environment variables are resolvable before triggering a deployment.
+- ✅ SSM, Secrets Manager, cross-stack, empty, and CDK intrinsic variables are surfaced with the exact variable name and Lambda function affected.
 
 ## Phase 14 - Lambda Bundle Size Analyzer
 
@@ -610,7 +611,7 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 2. M2: Resolver -> Lambda debug bridge.
 3. M3: DynamoDB intent validation from `cdk.out` + code contracts.
 4. M4: VTL trace and mapping diagnostics.
-5. M5: CDK preflight report command for pipeline readiness. (In progress)
+5. ✅ M5: CDK preflight report command for pipeline readiness.
 6. M6: Lambda local runner with event templates and CDK-aware handler discovery.
 7. M7: IAM permission preflight from synthesized policies and handler source analysis.
 8. M8: EventBridge rule tester with local pattern evaluation and batch mode.
@@ -618,7 +619,7 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 10. M10: Step Functions local debugger with state-by-state execution and error path analysis.
 11. M11: CloudWatch Logs live tail integrated with CDK stack resource names.
 12. M12: Mock data seeder from CDK table definitions and project seed scripts.
-13. M13: Environment variable preflight with SSM resolution and local override support.
+13. ✅ M13: Environment variable preflight with SSM resolution and local override support.
 14. M14: Lambda bundle size analyzer with dependency breakdown and limit warnings.
 15. M15: Timeout mismatch detector across Lambda, API Gateway, AppSync, SQS, and Step Functions.
 16. M16: AI resolver error diagnosis — plain-English root cause and inline fix suggestion on failure. (requires M1)

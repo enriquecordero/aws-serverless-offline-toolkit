@@ -33,6 +33,8 @@ Build a fast pre-deploy validation toolkit for AWS CDK projects that validates i
 - ✅ Completed: Logs panel filters (phase + resolver search) in AppSync Offline Studio.
 - ✅ Completed: CDK Preflight webview with confidence score (0–100) and readiness label.
 - ✅ Completed: Environment Variable Preflight — classifies Lambda env vars from `cdk.out`, supports `.env.local` overrides.
+- ✅ Completed: Mock Data Seeder (Phase 12) — `AWS: Reload Mock Data` and `AWS: Generate Mock Data from CDK` commands, hot-reload via `fs.watch`, CDK skeleton generation.
+- ✅ Completed: AppSync Studio identity dropdown, multi-identity runner, Resolver Runner tab, and trace-grouped log view (Phase 1 partial).
 
 ## Phase 1 - Resolver Debugging Foundation
 
@@ -313,6 +315,8 @@ Tail Lambda log groups directly from VS Code after deployment, using the CDK sta
 - Log discovery is automatic from the CDK stack — no manual log group configuration required.
 
 ## Phase 12 - Mock Data Seeder
+
+**Status:** ✅ Complete
 
 ### Goal
 
@@ -618,7 +622,7 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 9. M9: CDK cost estimator from `cdk.out` with usage parameters and cost warnings.
 10. M10: Step Functions local debugger with state-by-state execution and error path analysis.
 11. M11: CloudWatch Logs live tail integrated with CDK stack resource names.
-12. M12: Mock data seeder from CDK table definitions and project seed scripts.
+12. ✅ M12: Mock data seeder from CDK table definitions and project seed scripts.
 13. ✅ M13: Environment variable preflight with SSM resolution and local override support.
 14. M14: Lambda bundle size analyzer with dependency breakdown and limit warnings.
 15. ✅ M15: Timeout mismatch detector across Lambda, API Gateway, AppSync, SQS, and Step Functions.
@@ -638,6 +642,6 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 - 🔄 Implement DynamoDB access-pattern validator (table keys, GSIs, operation compatibility).
 - 🔄 Implement IAM preflight checks for resolver/lambda required actions.
 - ✅ Add initial documentation with quickstart and troubleshooting.
-- ⬜ Add `Reload Mock Data` button to AppSync Offline Studio panel.
+- ✅ Add `Reload Mock Data` button to AppSync Offline Studio panel.
 - ✅ Export CDK diff report as Markdown from the webview UI.
-- ⬜ Add multi-identity query runner: execute the same query across all mock identities in one command.
+- ✅ Add multi-identity query runner: execute the same query across all mock identities in one command.

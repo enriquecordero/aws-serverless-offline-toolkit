@@ -6,6 +6,20 @@ All notable changes to this project will be documented in this file.
 
 ### Added
 
+- **Trace ID per GraphQL request** — every request processed by the AppSync Offline Studio now gets a unique `traceId`. All resolver log entries (request, response, error) carry this ID so the log panel can group them into collapsible trace trees.
+- **Per-request identity override** — send an `x-appsync-identity` HTTP header to change the mock identity for a single query without restarting the server or changing extension settings. The AppSync Studio passes this header automatically from its identity dropdown.
+- **Identity dropdown in the query editor** — select `apiKey`, `cognitoUser`, `iam`, `admin`, or `guest` per query run. The chosen identity is included in every log entry for easy correlation.
+- **⚡ All Identities runner** — new "All Identities" button executes the current query against all five mock identities in parallel and displays a combined JSON response keyed by identity name.
+- **↺ Reload Data button** — reloads `mock-data.json` into the in-memory store without restarting the AppSync server. A confirmation banner appears in the panel on success.
+- **Resolver Runner tab** — new tab in the AppSync Studio with a `Type.Field` picker, identity selector, and argument editor. Runs the selected resolver and displays the full trace log (phases, duration, I/O) alongside the response.
+- **Trace-grouped log view** — the Logs panel now groups entries by `traceId`, showing collapsible trace trees with identity badge and per-step phase/duration/I/O detail.
+- **Mock Data Seeder (Phase 12)** — new `mockDataSeeder.ts` module with three capabilities:
+  - `seedFromJsonFile` — clears and re-seeds the in-memory store from a JSON file.
+  - `generateSkeletonsFromCdk` — parses `cdk.out` CloudFormation templates and generates skeleton `mock-data.json` fixtures from DynamoDB table key schemas.
+  - `watchMockDataFile` — watches `mock-data.json` for changes and hot-reloads data with a 300 ms debounce.
+- **New command: `AWS: Reload Mock Data`** — resolves `mock-data.json` (from `awsToolkit.appsync.mockDataPath` or workspace root), seeds the store, and notifies the panel.
+- **New command: `AWS: Generate Mock Data from CDK`** — generates skeleton fixtures from `cdk.out` DynamoDB table definitions, writes `mock-data.json`, opens it in the editor, and seeds immediately.
+- **`awsToolkit.appsync.mockDataPath` setting** — optional path (absolute or relative to workspace root) to a custom mock data file.
 - **Timeout Mismatch Detector (Phase 15)** — integrated into the CDK Preflight Report. Detects API Gateway integration timeout shorter than Lambda timeout (504 risk), AppSync Lambda data source exceeding the 30s resolver limit, SQS visibility timeout shorter than Lambda timeout (duplicate processing risk), and Lambda functions configured at the 900s maximum.
 
 ## [0.1.8] - 2026-04-30

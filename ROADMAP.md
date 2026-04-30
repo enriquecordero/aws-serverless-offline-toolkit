@@ -38,7 +38,8 @@ Build a fast pre-deploy validation toolkit for AWS CDK projects that validates i
 - ✅ Completed: Phase 1 — `/direct-resolve` endpoint, resolver run history (workspace state), actionable error diagnostics.
 - ✅ Completed: Phase 4 — VTL resolver evaluator (`$ctx`, `$util.dynamodb.*`, `#if`, `#foreach`, `VtlError`).
 - ✅ Completed: Phase 2 — Lambda debugging integration
-- ✅ Completed: Pipeline resolvers — `.pipeline.json` declaration, before/after templates, `ctx.stash` / `ctx.prev.result` chaining, per-function JS/VTL/Lambda data sources, step labels in trace.: `lambdaRunner.ts` local invocation via `child_process`, `--inspect-brk` debug mode, VS Code attach session from "Debug Lambda" button, AppSync event shape construction, `awsToolkit.appsync.lambdaHandlers` / `lambdaDebugPort` settings.
+- ✅ Completed: Pipeline resolvers — `.pipeline.json` declaration, before/after templates, `ctx.stash` / `ctx.prev.result` chaining, per-function JS/VTL/Lambda data sources, step labels in trace.
+- ✅ Completed: DynamoDB GSI / FilterExpression / pagination — `FilterExpression`, `KeyConditionExpression`, `UpdateExpression` (SET/REMOVE/ADD), composite keys, GSI simulation, `limit`/`nextToken` pagination, full `@aws-appsync/utils` request shape compatibility.: `lambdaRunner.ts` local invocation via `child_process`, `--inspect-brk` debug mode, VS Code attach session from "Debug Lambda" button, AppSync event shape construction, `awsToolkit.appsync.lambdaHandlers` / `lambdaDebugPort` settings.
 
 ## Phase 1 - Resolver Debugging Foundation
 

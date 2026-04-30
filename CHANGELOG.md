@@ -48,6 +48,13 @@ All notable changes to this project will be documented in this file.
   - Resolver trace shows per-step labels: `[before]`, `FunctionName`, `FunctionName:lambda`, `[after]`.
   - Log panel shows an amber step badge for each pipeline log entry.
   - Function files live in `resolvers/functions/<FunctionName>.request.js` (or `.vtl`).
+- **DynamoDB GSI / FilterExpression / pagination** — in-memory DynamoDB dispatch now supports the full AppSync expression model:
+  - `FilterExpression` and `KeyConditionExpression` via a recursive-descent parser: `=`, `<>`, `>`, `<`, `>=`, `<=`, `BETWEEN`, `IN`, `begins_with`, `contains`, `attribute_exists`, `attribute_not_exists`, `AND`/`OR`/`NOT`, parentheses, `#name` substitution, `:value` substitution, and dotted attribute paths.
+  - GSI simulation: `Query` with a `query.expression` filters all items in the table by the hash-key attribute — no explicit index schema required.
+  - `UpdateExpression`: `SET`, `REMOVE`, and `ADD` clauses parsed from `update.expression` (the format produced by `@aws-appsync/utils/dynamodb`). Falls back to `attributeValues` for older request shapes.
+  - Composite keys (`pk` + `sk`) for `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem` — storage key is derived from the `key` map, no `id` field required.
+  - Pagination: `limit` + `nextToken` (base64 cursor) on both `Query` and `Scan`; response includes `{ items, nextToken, scannedCount }` matching the AppSync DDB shape.
+  - `putItem`, `deleteItem`, `deleteByAttributes` updated in `InMemoryDataSource` to support composite key tables.
 - **Timeout Mismatch Detector (Phase 15)** — integrated into the CDK Preflight Report. Detects API Gateway integration timeout shorter than Lambda timeout (504 risk), AppSync Lambda data source exceeding the 30s resolver limit, SQS visibility timeout shorter than Lambda timeout (duplicate processing risk), and Lambda functions configured at the 900s maximum.
 
 ## [0.1.8] - 2026-04-30

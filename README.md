@@ -22,7 +22,7 @@ Run AppSync JavaScript and VTL resolvers locally with a realistic `ctx` simulati
 - **Lambda data source support** — configure a handler spec per data source and the resolver engine invokes the Lambda handler locally instead of the in-memory store.
 - **🐛 Debug Lambda** — one click spawns the Lambda handler with `--inspect-brk` and attaches VS Code's Node.js debugger so you can set breakpoints and step through handler code.
 - **VTL resolver evaluation** — `.vtl` request/response templates are rendered locally, with `$ctx`, `$util.dynamodb.*`, `#if`, `#foreach`, and `$util.error` support.
-- In-memory DynamoDB dispatch (`GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `Scan`).
+- In-memory DynamoDB with full expression support: `GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `Scan`, composite keys, `FilterExpression`, `KeyConditionExpression`, `UpdateExpression` (`SET`/`REMOVE`/`ADD`), GSI simulation, and `limit`/`nextToken` pagination.
 - Resolver run history — the last 20 runs persist in workspace state with one-click replay.
 - Auto-detection of project layout or explicit path configuration.
 
@@ -110,6 +110,48 @@ For env var validation, add a `.env.local` file at the workspace root to provide
 # .env.local  (excluded from VSIX and git)
 MY_SSM_PARAM=local-override-value
 ANOTHER_SECRET=dev-value
+```
+
+## DynamoDB Expression Support
+
+The in-memory store evaluates real DynamoDB expression syntax, so resolver code written for AWS works locally without changes.
+
+**Query with GSI** (filters by any attribute — no index schema needed):
+
+```js
+// resolver request
+export function request(ctx) {
+  return {
+    operation: 'Query',
+    query: {
+      expression: 'userId = :userId',
+      expressionValues: { ':userId': util.dynamodb.toDynamoDB(ctx.args.userId) },
+    },
+    filter: {
+      expression: '#status = :status',
+      expressionNames: { '#status': 'status' },
+      expressionValues: { ':status': util.dynamodb.toDynamoDB('active') },
+    },
+    index: 'byUserId',
+    limit: 20,
+  };
+}
+```
+
+**UpdateExpression**:
+
+```js
+export function request(ctx) {
+  return {
+    operation: 'UpdateItem',
+    key: util.dynamodb.toMapValues({ id: ctx.args.id }),
+    update: {
+      expression: 'SET #name = :name REMOVE deletedAt',
+      expressionNames: { '#name': 'name' },
+      expressionValues: { ':name': util.dynamodb.toDynamoDB(ctx.args.name) },
+    },
+  };
+}
 ```
 
 ## Lambda Data Source Setup

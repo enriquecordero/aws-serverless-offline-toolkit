@@ -2,7 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
-## [Unreleased]
+## [0.1.8] - 2026-04-30
+
+### Added
+
+- **CDK Stack Preflight webview** — `AWS: Validate Stack Intent (cdk.out)` now opens a dedicated panel instead of a plain Markdown tab, with findings grouped by severity and an Export Markdown button.
+- **Confidence score** — preflight report displays a 0–100 readiness score with label (*Ready to Deploy*, *Minor Issues*, *Review Needed*, *Significant Issues*, *Not Ready*) derived from finding severity counts.
+- **Env Var Preflight** — new command `AWS: Validate Environment Variables` scans every Lambda function in `cdk.out` and classifies each environment variable as: static (resolved), SSM/Secrets Manager/cross-stack ref (needs cloud), CDK intrinsic token, or empty string.
+- `.env.local` support — env var preflight reads workspace-root `.env.local` to resolve cloud-backed variables offline, and surfaces a ready-to-paste snippet for any unresolved SSM or Secrets Manager references.
+- **CLAUDE.md** — added codebase guidance file for Claude Code.
+
+### Changed
+
+- Stack Intent validation result is now shown in a webview panel (`StackIntentPanel`) with color-coded severity sections, replacing the previous plain Markdown document.
+- Preflight log output now includes the confidence score and label alongside finding counts.
+
+## [0.1.7] - 2026-04-27
 
 ### Added
 

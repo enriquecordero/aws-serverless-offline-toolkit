@@ -621,7 +621,7 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 12. M12: Mock data seeder from CDK table definitions and project seed scripts.
 13. ✅ M13: Environment variable preflight with SSM resolution and local override support.
 14. M14: Lambda bundle size analyzer with dependency breakdown and limit warnings.
-15. M15: Timeout mismatch detector across Lambda, API Gateway, AppSync, SQS, and Step Functions.
+15. ✅ M15: Timeout mismatch detector across Lambda, API Gateway, AppSync, SQS, and Step Functions.
 16. M16: AI resolver error diagnosis — plain-English root cause and inline fix suggestion on failure. (requires M1)
 17. M17: AI-enhanced CDK risk analysis — contextual diff narrative and intent-aware risk scoring. (requires M5)
 18. M18: AI IAM policy generator — least-privilege CDK PolicyStatement from handler source. (requires M7)

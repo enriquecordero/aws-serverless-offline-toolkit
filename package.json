@@ -2,7 +2,7 @@
   "name": "aws-serverless-offline-toolkit",
   "displayName": "AWS Serverless Offline Toolkit",
   "description": "Local AppSync simulator and CDK diff explainer for AWS developers",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "publisher": "ec-dev-studio",
   "icon": "media/icon.png",
   "license": "MIT",
@@ -28,14 +28,6 @@
     "offline"
   ],
   "activationEvents": [
-    "onCommand:awsToolkit.startAppSyncOffline",
-    "onCommand:awsToolkit.stopAppSyncOffline",
-    "onCommand:awsToolkit.detectAppSyncProject",
-    "onCommand:awsToolkit.detectAndStartAppSyncOffline",
-    "onCommand:awsToolkit.validateAppSyncSetup",
-    "onCommand:awsToolkit.runCdkDiffExplainer",
-    "onCommand:awsToolkit.validateStackIntent",
-    "onCommand:awsToolkit.synthAndValidateStackIntent",
     "workspaceContains:**/schema.graphql",
     "workspaceContains:**/cdk.json"
   ],

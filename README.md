@@ -12,13 +12,18 @@ It is not a full cloud emulator. The goal is shorter feedback loops and earlier 
 
 ### AppSync Offline Studio
 
-Run AppSync JavaScript resolvers locally with a realistic `ctx` simulation — no AWS account required.
+Run AppSync JavaScript and VTL resolvers locally with a realistic `ctx` simulation — no AWS account required.
 
 - Local GraphQL server with AppSync-style context (`arguments`, `identity`, `source`, `stash`, `result`).
 - Supports single schema files and multi-file schema folders with hot reload.
-- Mock identity modes: `apiKey`, `cognitoUser`, `iam`, `admin`, `guest`.
+- Mock identity modes: `apiKey`, `cognitoUser`, `iam`, `admin`, `guest` — switchable per request.
 - Query editor with variables, execution history, and schema explorer.
+- **Resolver Runner tab** — run any resolver directly with a custom identity and argument JSON, see the full trace (phase, duration, I/O) without writing a full GraphQL query.
+- **Lambda data source support** — configure a handler spec per data source and the resolver engine invokes the Lambda handler locally instead of the in-memory store.
+- **🐛 Debug Lambda** — one click spawns the Lambda handler with `--inspect-brk` and attaches VS Code's Node.js debugger so you can set breakpoints and step through handler code.
+- **VTL resolver evaluation** — `.vtl` request/response templates are rendered locally, with `$ctx`, `$util.dynamodb.*`, `#if`, `#foreach`, and `$util.error` support.
 - In-memory DynamoDB dispatch (`GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `Scan`).
+- Resolver run history — the last 20 runs persist in workspace state with one-click replay.
 - Auto-detection of project layout or explicit path configuration.
 
 ### CDK Diff Explainer
@@ -57,6 +62,8 @@ Open the Command Palette (`Cmd+Shift+P`) and run:
 | `AWS: Detect AppSync Project` | Auto-detect schema, resolvers, and mock data |
 | `AWS: Detect and Start AppSync Offline` | Detect project and start server in one step |
 | `AWS: Validate AppSync Setup` | Verify paths and configuration |
+| `AWS: Reload Mock Data` | Re-seed in-memory store from `mock-data.json` without restart |
+| `AWS: Generate Mock Data from CDK` | Generate skeleton fixtures from CDK DynamoDB table definitions |
 | `AWS: Run CDK Diff Explainer` | Analyze `cdk diff` with risk classification |
 | `AWS: Validate Stack Intent (cdk.out)` | Run preflight checks from synthesized templates |
 | `AWS: Synth and Validate Stack Intent` | Run `cdk synth` then preflight in one flow |
@@ -105,6 +112,23 @@ MY_SSM_PARAM=local-override-value
 ANOTHER_SECRET=dev-value
 ```
 
+## Lambda Data Source Setup
+
+To connect a Lambda data source to the local resolver engine, add the handler spec to your workspace settings:
+
+```json
+// .vscode/settings.json
+{
+  "awsToolkit.appsync.lambdaHandlers": {
+    "MyLambdaDataSource": "src/handlers/resolver.ts#handler"
+  }
+}
+```
+
+The key is the AppSync data source name (as defined in your CDK stack or AppSync config). The value is `"path/to/handler#exportedFunction"` — relative to the workspace root.
+
+Once configured, the Resolver Runner's **▶ Run Resolver** button invokes the Lambda locally. Use **🐛 Debug Lambda** to attach the VS Code debugger and step through the handler with breakpoints.
+
 ## Resolver Example (APPSYNC_JS)
 
 ```js
@@ -129,6 +153,8 @@ export function response(ctx) {
 | `awsToolkit.appsync.schemaPath` | — | Schema file or directory path |
 | `awsToolkit.appsync.resolversPath` | — | Resolvers directory path |
 | `awsToolkit.appsync.mockDataPath` | — | `mock-data.json` file path |
+| `awsToolkit.appsync.lambdaHandlers` | `{}` | Map of data source name → handler spec, e.g. `{ "MyDS": "src/handler.ts#handler" }` |
+| `awsToolkit.appsync.lambdaDebugPort` | `9229` | Node.js inspector port for Lambda debug sessions |
 | `awsToolkit.cdkDiff.stackName` | — | Specific CDK stack to diff (empty = all) |
 
 ## Best Fit

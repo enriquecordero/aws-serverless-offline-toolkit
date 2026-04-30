@@ -37,6 +37,7 @@ Build a fast pre-deploy validation toolkit for AWS CDK projects that validates i
 - ✅ Completed: AppSync Studio identity dropdown, multi-identity runner, Resolver Runner tab, and trace-grouped log view.
 - ✅ Completed: Phase 1 — `/direct-resolve` endpoint, resolver run history (workspace state), actionable error diagnostics.
 - ✅ Completed: Phase 4 — VTL resolver evaluator (`$ctx`, `$util.dynamodb.*`, `#if`, `#foreach`, `VtlError`).
+- ✅ Completed: Phase 2 — Lambda debugging integration: `lambdaRunner.ts` local invocation via `child_process`, `--inspect-brk` debug mode, VS Code attach session from "Debug Lambda" button, AppSync event shape construction, `awsToolkit.appsync.lambdaHandlers` / `lambdaDebugPort` settings.
 
 ## Phase 1 - Resolver Debugging Foundation
 
@@ -71,6 +72,8 @@ Deliver practical debugging for AppSync resolvers with clear execution traces.
 
 ## Phase 2 - Lambda Debugging Integration
 
+**Status:** ✅ Complete
+
 ### Goal
 
 Enable end-to-end local debugging when resolvers invoke Lambda data sources.
@@ -83,13 +86,16 @@ Enable end-to-end local debugging when resolvers invoke Lambda data sources.
 
 ### Outputs
 
-- Command to debug resolver -> Lambda flow.
-- Unified trace with Lambda invocation segment.
-- Standard templates for mock event generation.
+- ✅ "🐛 Debug Lambda" button in Resolver Runner tab — spawns handler with `--inspect-brk` and attaches VS Code debugger.
+- ✅ `lambdaRunner.ts` — local Lambda invocation via `child_process.spawn`; runner script written to temp file; ts-node auto-registered for `.ts` handlers.
+- ✅ Unified trace: request template → Lambda invocation → response template, all visible in the resolver trace panel.
+- ✅ AppSync event shape (`arguments`, `identity`, `source`, `request`, `info`, `stash`, `prev`) constructed from context simulator.
+- ✅ `awsToolkit.appsync.lambdaHandlers` setting: map of data source name → handler spec (`"path/to/handler.ts#exportName"`).
+- ✅ `awsToolkit.appsync.lambdaDebugPort` setting (default `9229`).
 
 ### Exit Criteria
 
-- A developer can set breakpoints in Lambda code and inspect handler execution from an AppSync request.
+- ✅ A developer can set breakpoints in Lambda code and inspect handler execution from an AppSync request.
 
 ## Phase 3 - DynamoDB Intent Validation (CDK-oriented)
 
@@ -618,7 +624,7 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 ## Milestone Sequence
 
 1. ✅ M1: APPSYNC_JS trace and checkpoint debugger.
-2. M2: Resolver -> Lambda debug bridge.
+2. ✅ M2: Resolver -> Lambda debug bridge.
 3. M3: DynamoDB intent validation from `cdk.out` + code contracts.
 4. ✅ M4: VTL trace and mapping diagnostics.
 5. ✅ M5: CDK preflight report command for pipeline readiness.
@@ -642,7 +648,7 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 
 - ⬜ Define resolver trace JSON schema.
 - ⬜ Add command: run resolver with custom variables and identity profile.
-- ⬜ Add command: debug Lambda invocation from resolver context.
+- ✅ Add command: debug Lambda invocation from resolver context.
 - ✅ Add command: validate stack intent from `cdk.out` (AppSync, DynamoDB, IAM, Lambda wiring).
 - ✅ Add command: synth and validate stack intent in one flow.
 - 🔄 Implement DynamoDB access-pattern validator (table keys, GSIs, operation compatibility).

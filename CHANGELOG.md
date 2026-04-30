@@ -30,6 +30,13 @@ All notable changes to this project will be documented in this file.
   - Control flow: `#set`, `#if`/`#elseif`/`#else`/`#end` (nested), `#foreach` with `$foreach.hasNext`.
   - `schemaLoader` auto-detects `.vtl` files and marks resolvers with `resolverType: 'VTL'`.
   - `VtlError` type is surfaced in the resolver trace with its AppSync error type annotation.
+- **Lambda Debugging Integration (Phase 2)** — invoke and debug Lambda data source handlers directly from the Resolver Runner tab:
+  - New **🐛 Debug Lambda** button next to "Run Resolver": spawns the handler with `--inspect-brk` and attaches VS Code's Node.js debugger automatically via `vscode.debug.startDebugging`.
+  - `lambdaRunner.ts` — new module that writes a runner script to a temp file, spawns `node [--inspect-brk=port] runner.js eventFile handlerPath exportName`, and resolves the result from stdout. TypeScript handlers are supported via `ts-node` auto-registration.
+  - AppSync event shape (`arguments`, `identity`, `source`, `request`, `info`, `stash`, `prev`) is constructed from the context simulator and passed as the Lambda event.
+  - Lambda data sources are now resolved end-to-end in `resolverEngine` when a handler spec is registered: request template → Lambda invocation → response template.
+  - New settings: `awsToolkit.appsync.lambdaHandlers` (map of data source name → `"path/to/handler.ts#exportName"`) and `awsToolkit.appsync.lambdaDebugPort` (default `9229`).
+  - Debug session banner appears in the panel while the debugger is attached; result or error banner appears on completion.
 - **Timeout Mismatch Detector (Phase 15)** — integrated into the CDK Preflight Report. Detects API Gateway integration timeout shorter than Lambda timeout (504 risk), AppSync Lambda data source exceeding the 30s resolver limit, SQS visibility timeout shorter than Lambda timeout (duplicate processing risk), and Lambda functions configured at the 900s maximum.
 
 ## [0.1.8] - 2026-04-30

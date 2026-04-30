@@ -20,6 +20,16 @@ All notable changes to this project will be documented in this file.
 - **New command: `AWS: Reload Mock Data`** — resolves `mock-data.json` (from `awsToolkit.appsync.mockDataPath` or workspace root), seeds the store, and notifies the panel.
 - **New command: `AWS: Generate Mock Data from CDK`** — generates skeleton fixtures from `cdk.out` DynamoDB table definitions, writes `mock-data.json`, opens it in the editor, and seeds immediately.
 - **`awsToolkit.appsync.mockDataPath` setting** — optional path (absolute or relative to workspace root) to a custom mock data file.
+- **Resolver Runner — direct execution (Phase 1)** — Resolver Runner tab now calls a dedicated `/direct-resolve` endpoint, passing arguments as plain JSON. No GraphQL query string needs to be constructed, so all argument types (ID, string, number, nested object) work correctly.
+- **Resolver trace display** — each run shows request/response/error phases with duration and I/O preview. Actionable diagnostics appear for common failures: null data-source result, undefined variable, syntax error, VTL error.
+- **Resolver run history (Phase 1)** — the last 20 resolver runs are persisted in workspace state and shown in a collapsible "Recent Runs" section. Click any entry to replay (restores Type.Field, identity, and arguments).
+- **VTL Resolver Debugging (Phase 4)** — resolver templates written in Velocity Template Language (`.vtl` files) are now evaluated locally:
+  - Variable interpolation: `$ctx.args`, `$ctx.identity`, `${...}` braced form, user-defined `#set` vars.
+  - DynamoDB helpers: `$util.dynamodb.toDynamoDBJson`, `toMapValuesJson`, `toStringJson`, `toListJson`, `toStringSet`.
+  - Utilities: `$util.toJson`, `$util.autoId`, `$util.defaultIfNull`, `$util.error` (raises `VtlError`).
+  - Control flow: `#set`, `#if`/`#elseif`/`#else`/`#end` (nested), `#foreach` with `$foreach.hasNext`.
+  - `schemaLoader` auto-detects `.vtl` files and marks resolvers with `resolverType: 'VTL'`.
+  - `VtlError` type is surfaced in the resolver trace with its AppSync error type annotation.
 - **Timeout Mismatch Detector (Phase 15)** — integrated into the CDK Preflight Report. Detects API Gateway integration timeout shorter than Lambda timeout (504 risk), AppSync Lambda data source exceeding the 30s resolver limit, SQS visibility timeout shorter than Lambda timeout (duplicate processing risk), and Lambda functions configured at the 900s maximum.
 
 ## [0.1.8] - 2026-04-30

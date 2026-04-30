@@ -34,9 +34,13 @@ Build a fast pre-deploy validation toolkit for AWS CDK projects that validates i
 - ✅ Completed: CDK Preflight webview with confidence score (0–100) and readiness label.
 - ✅ Completed: Environment Variable Preflight — classifies Lambda env vars from `cdk.out`, supports `.env.local` overrides.
 - ✅ Completed: Mock Data Seeder (Phase 12) — `AWS: Reload Mock Data` and `AWS: Generate Mock Data from CDK` commands, hot-reload via `fs.watch`, CDK skeleton generation.
-- ✅ Completed: AppSync Studio identity dropdown, multi-identity runner, Resolver Runner tab, and trace-grouped log view (Phase 1 partial).
+- ✅ Completed: AppSync Studio identity dropdown, multi-identity runner, Resolver Runner tab, and trace-grouped log view.
+- ✅ Completed: Phase 1 — `/direct-resolve` endpoint, resolver run history (workspace state), actionable error diagnostics.
+- ✅ Completed: Phase 4 — VTL resolver evaluator (`$ctx`, `$util.dynamodb.*`, `#if`, `#foreach`, `VtlError`).
 
 ## Phase 1 - Resolver Debugging Foundation
+
+**Status:** ✅ Complete
 
 ### Goal
 
@@ -113,6 +117,8 @@ Validate DynamoDB assumptions from synthesized templates and resolver/lambda usa
 - Most Dynamo-related misconfigurations are caught from `cdk.out` + code analysis.
 
 ## Phase 4 - VTL Resolver Debugging
+
+**Status:** ✅ Complete
 
 ### Goal
 
@@ -611,10 +617,10 @@ Parse the GraphQL schema and resolver source code to automatically generate a re
 
 ## Milestone Sequence
 
-1. M1: APPSYNC_JS trace and checkpoint debugger.
+1. ✅ M1: APPSYNC_JS trace and checkpoint debugger.
 2. M2: Resolver -> Lambda debug bridge.
 3. M3: DynamoDB intent validation from `cdk.out` + code contracts.
-4. M4: VTL trace and mapping diagnostics.
+4. ✅ M4: VTL trace and mapping diagnostics.
 5. ✅ M5: CDK preflight report command for pipeline readiness.
 6. M6: Lambda local runner with event templates and CDK-aware handler discovery.
 7. M7: IAM permission preflight from synthesized policies and handler source analysis.

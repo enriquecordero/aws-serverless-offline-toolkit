@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as chokidar from 'chokidar';
 import { buildSchema, GraphQLSchema } from 'graphql';
-import { ResolverDefinition } from '../../shared/types';
+import { ResolverDefinition, PipelineFunction } from '../../shared/types';
 
 const APPSYNC_SCHEMA_PREAMBLE = `
 scalar AWSDateTime
@@ -99,20 +99,21 @@ export class SchemaLoader {
 
   private loadResolverFiles(): ResolverDefinition[] {
     const resolvers: ResolverDefinition[] = [];
+    const grouped: Record<string, Partial<ResolverDefinition>> = {};
 
-    // Convention: resolvers/<TypeName>.<fieldName>.request.(js|ts|vtl) and .response.(js|ts|vtl)
+    // ── Unit resolvers: TypeName.fieldName.request.(js|ts|vtl) ───────────────
     const files = fs.readdirSync(this.resolversDir)
       .filter(f => f.endsWith('.js') || f.endsWith('.ts') || f.endsWith('.vtl'));
 
-    const grouped: Record<string, Partial<ResolverDefinition>> = {};
-
     for (const file of files) {
-      // Expected: Query.getItem.request.js  or  Mutation.createItem.response.vtl
       const baseName = file.replace(/\.(js|ts|vtl)$/i, '');
       const parts = baseName.split('.');
       if (parts.length < 3) { continue; }
 
       const [typeName, fieldName, phase] = parts;
+      // Skip before/after templates — handled by pipeline loader
+      if (phase !== 'request' && phase !== 'response') { continue; }
+
       const key = `${typeName}.${fieldName}`;
       const isVtl = file.endsWith('.vtl');
 
@@ -130,9 +131,81 @@ export class SchemaLoader {
       const code = fs.readFileSync(path.join(this.resolversDir, file), 'utf-8');
       if (phase === 'request') {
         grouped[key].requestMappingTemplate = code;
-      } else if (phase === 'response') {
+      } else {
         grouped[key].responseMappingTemplate = code;
       }
+    }
+
+    // ── Pipeline resolvers: TypeName.fieldName.pipeline.json ─────────────────
+    const pipelineFiles = fs.readdirSync(this.resolversDir)
+      .filter(f => f.endsWith('.pipeline.json'));
+
+    const functionsDir = path.join(this.resolversDir, 'functions');
+
+    for (const pf of pipelineFiles) {
+      const baseName = pf.replace('.pipeline.json', '');
+      const dotIdx = baseName.indexOf('.');
+      if (dotIdx === -1) { continue; }
+      const typeName = baseName.slice(0, dotIdx);
+      const fieldName = baseName.slice(dotIdx + 1);
+      const key = `${typeName}.${fieldName}`;
+
+      let pipelineDef: { functions?: Array<{ name: string; dataSource: string }> };
+      try {
+        pipelineDef = JSON.parse(fs.readFileSync(path.join(this.resolversDir, pf), 'utf-8')) as typeof pipelineDef;
+      } catch {
+        continue;
+      }
+
+      const readTemplate = (base: string, suffix: string): string | undefined => {
+        for (const ext of ['.js', '.ts', '.vtl']) {
+          const f = path.join(this.resolversDir, `${base}.${suffix}${ext}`);
+          if (fs.existsSync(f)) { return fs.readFileSync(f, 'utf-8'); }
+        }
+        return undefined;
+      };
+
+      const pipelineFunctions: PipelineFunction[] = (pipelineDef.functions ?? []).map(fn => {
+        let reqCode: string | undefined;
+        let resCode: string | undefined;
+        let resolverType: 'JS' | 'VTL' | undefined;
+
+        if (fs.existsSync(functionsDir)) {
+          for (const ext of ['.js', '.ts', '.vtl']) {
+            const reqFile = path.join(functionsDir, `${fn.name}.request${ext}`);
+            if (fs.existsSync(reqFile)) {
+              reqCode = fs.readFileSync(reqFile, 'utf-8');
+              resolverType = ext === '.vtl' ? 'VTL' : 'JS';
+              break;
+            }
+          }
+          for (const ext of ['.js', '.ts', '.vtl']) {
+            const resFile = path.join(functionsDir, `${fn.name}.response${ext}`);
+            if (fs.existsSync(resFile)) {
+              resCode = fs.readFileSync(resFile, 'utf-8');
+              break;
+            }
+          }
+        }
+
+        return {
+          name: fn.name,
+          dataSource: fn.dataSource || 'NONE',
+          requestMappingTemplate: reqCode,
+          responseMappingTemplate: resCode,
+          resolverType,
+        };
+      });
+
+      // Pipeline overrides any unit resolver with the same key
+      grouped[key] = {
+        typeName,
+        fieldName,
+        dataSource: 'PIPELINE',
+        requestMappingTemplate: readTemplate(baseName, 'before'),
+        responseMappingTemplate: readTemplate(baseName, 'after'),
+        pipeline: pipelineFunctions,
+      };
     }
 
     for (const def of Object.values(grouped)) {

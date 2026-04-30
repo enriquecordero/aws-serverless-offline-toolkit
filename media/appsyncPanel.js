@@ -233,9 +233,13 @@
                 item.style.cssText = 'padding:6px 12px 6px 20px;border-top:1px solid var(--border)30;';
                 const out = escapeHtml(JSON.stringify(log.output || {}).slice(0, 160));
                 const pColor = phaseColor(log.phase);
+                var stepBadge = log.pipelineStep
+                    ? '<span style="background:#1f2d3d;color:var(--warning);padding:1px 5px;border-radius:3px;font-size:9px;">' + escapeHtml(log.pipelineStep) + '</span>'
+                    : '';
                 item.innerHTML =
                     '<div style="display:flex;gap:6px;align-items:center;font-size:10px;margin-bottom:3px;">' +
                     '<span style="color:' + pColor + ';font-weight:700;">' + escapeHtml(log.phase) + '</span>' +
+                    stepBadge +
                     '<span style="color:var(--accent2);">' + escapeHtml(log.typeName + '.' + log.fieldName) + '</span>' +
                     '<span style="color:var(--muted);margin-left:auto;">' + (log.durationMs || 0) + 'ms</span>' +
                     '</div>' +
@@ -516,7 +520,8 @@
         lines.push('');
         if (result.logs && result.logs.length) {
             result.logs.forEach(function (log) {
-                lines.push('// [' + (log.phase || '?').toUpperCase() + '] ' + (log.durationMs || 0) + 'ms');
+                var stepLabel = log.pipelineStep ? log.pipelineStep + ' → ' : '';
+                lines.push('// [' + stepLabel + (log.phase || '?').toUpperCase() + '] ' + (log.durationMs || 0) + 'ms');
                 if (log.input !== undefined && log.input !== null) {
                     lines.push('//   in:  ' + JSON.stringify(log.input).slice(0, 300));
                 }

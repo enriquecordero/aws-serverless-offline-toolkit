@@ -37,13 +37,22 @@ export interface AppSyncContext {
   };
 }
 
+export interface PipelineFunction {
+  name: string;
+  dataSource: string;
+  requestMappingTemplate?: string;
+  responseMappingTemplate?: string;
+  resolverType?: 'JS' | 'VTL';
+}
+
 export interface ResolverDefinition {
   typeName: string;
   fieldName: string;
-  requestMappingTemplate?: string;
-  responseMappingTemplate?: string;
+  requestMappingTemplate?: string;  // before template (pipeline) or request (unit)
+  responseMappingTemplate?: string; // after template (pipeline) or response (unit)
   dataSource: string;
   resolverType?: 'JS' | 'VTL';
+  pipeline?: PipelineFunction[];    // present → pipeline resolver
 }
 
 export interface MockDataSource {
@@ -73,6 +82,7 @@ export interface ResolverLog {
   durationMs: number;
   traceId?: string;
   identityType?: string;
+  pipelineStep?: string; // function name, '[before]', '[after]', or '<name>:lambda'
 }
 
 // ─── CDK Diff Types ──────────────────────────────────────────────────────────

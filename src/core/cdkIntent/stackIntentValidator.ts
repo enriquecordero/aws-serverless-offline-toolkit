@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { validateTimeouts } from './timeoutValidator';
 
 export interface StackIntentFinding {
     severity: 'low' | 'medium' | 'high';
@@ -384,7 +385,9 @@ export function validateStackIntent(workspaceRoots: string[]): StackIntentSummar
         }
     }
 
-    const base = { stacksScanned, resourcesScanned, findings: normalizeFindings(findings) };
+    const timeoutFindings = validateTimeouts(workspaceRoots);
+    const allFindings = normalizeFindings([...findings, ...timeoutFindings]);
+    const base = { stacksScanned, resourcesScanned, findings: allFindings };
     const { score, label } = computeConfidenceScore(base);
     return { ...base, confidenceScore: score, confidenceLabel: label };
 }

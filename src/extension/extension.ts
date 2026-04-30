@@ -7,6 +7,7 @@ import { runCdkDiffExplainer } from './commands/runCdkDiffExplainer';
 import { synthAndValidateStackIntentCommand, validateStackIntentCommand } from './commands/validateStackIntent';
 import { validateEnvVarsCommand } from './commands/validateEnvVars';
 import { AppSyncPanel } from './webviews/appsyncPanel';
+import { reloadMockDataCommand, seedFromCdkCommand } from './commands/reloadMockData';
 
 export function activate(context: vscode.ExtensionContext): void {
   console.log('[AWS Serverless Offline Toolkit] Activated');
@@ -50,6 +51,15 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('awsToolkit.validateEnvVars', validateEnvVarsCommand)
+  );
+
+  // ── Mock Data ────────────────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('awsToolkit.reloadMockData', reloadMockDataCommand)
+  );
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('awsToolkit.seedFromCdk', seedFromCdkCommand)
   );
 
   // ── Status bar buttons ───────────────────────────────────────────────────

@@ -104,6 +104,19 @@ export class AppSyncPanel {
 
     if (msg.type === 'clearLogs') {
       this.logs = [];
+      return;
+    }
+
+    if (msg.type === 'reloadMockData') {
+      this.reloadMockData();
+      return;
+    }
+  }
+
+  reloadMockData(): void {
+    this.server?.reloadMockData();
+    if (this.webviewReady) {
+      this.panel.webview.postMessage({ type: 'mockDataReloaded' });
     }
   }
 
@@ -295,6 +308,7 @@ export class AppSyncPanel {
       <div class="editor-tabs">
         <button id="tabEditorQuery" class="editor-tab active">Query</button>
         <button id="tabEditorVars" class="editor-tab">Variables</button>
+        <button id="tabEditorResolver" class="editor-tab">Resolver Runner</button>
       </div>
 
       <div id="editorPanelQuery" class="editor-panel active">
@@ -315,8 +329,45 @@ export class AppSyncPanel {
         <textarea id="variablesInput" class="vars-input" spellcheck="false" placeholder="{}"></textarea>
       </div>
 
+      <div id="editorPanelResolver" class="editor-panel">
+        <div class="vars-hint">Run a single resolver directly with custom identity and arguments.</div>
+        <div style="padding:10px 12px;display:flex;flex-direction:column;gap:8px;flex-shrink:0;">
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:11px;color:var(--muted);width:80px;flex-shrink:0;">Type.Field</label>
+            <input id="resolverPicker" type="text" placeholder="Query.getItem" style="flex:1;background:#0d1117;border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:12px;outline:none;font-family:monospace;" />
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <label style="font-size:11px;color:var(--muted);width:80px;flex-shrink:0;">Identity</label>
+            <select id="resolverIdentity" style="background:#0d1117;border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:12px;outline:none;">
+              <option value="apiKey">apiKey</option>
+              <option value="cognitoUser">cognitoUser</option>
+              <option value="iam">iam</option>
+              <option value="admin">admin</option>
+              <option value="guest">guest</option>
+            </select>
+          </div>
+        </div>
+        <div class="vars-hint" style="border-top:1px solid var(--border);">Arguments (JSON)</div>
+        <textarea id="resolverArgs" class="vars-input" spellcheck="false" placeholder='{"id": "usr-001"}'></textarea>
+        <div style="padding:8px 12px;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:8px;">
+          <button id="btnRunResolver">▶ Run Resolver</button>
+        </div>
+        <div style="flex:1;overflow:auto;background:#0d1117;min-height:0;">
+          <pre id="resolverTrace" style="padding:12px;font-size:11px;color:var(--muted);">// Resolver trace will appear here</pre>
+        </div>
+      </div>
+
       <div class="actions">
         <button id="btnRun">▶ Run <span class="kbd">⌃↵</span></button>
+        <select id="identitySelect" title="Mock identity" style="background:#0d1117;border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-size:11px;outline:none;cursor:pointer;">
+          <option value="apiKey">apiKey</option>
+          <option value="cognitoUser">cognitoUser</option>
+          <option value="iam">iam</option>
+          <option value="admin">admin</option>
+          <option value="guest">guest</option>
+        </select>
+        <button id="btnRunAll" class="secondary" title="Run query with all 5 identities">⚡ All Identities</button>
+        <button id="btnReloadData" class="secondary" title="Reload mock-data.json">↺ Reload Data</button>
         <button id="btnClear" class="secondary">Clear</button>
         <div class="history-wrap">
           <button id="btnHistory" class="secondary">⏱ History</button>

@@ -67,6 +67,12 @@ export class AppSyncOfflineServer {
     }
   }
 
+  reloadMockData(): void {
+    inMemoryStore.clearAll();
+    this.seedDataSources();
+    console.log('[AppSync Offline] Mock data reloaded ✓');
+  }
+
   private buildResolvers(): Record<string, Record<string, GraphQLFieldResolver<unknown, unknown>>> {
     const resolverMap: Record<string, Record<string, GraphQLFieldResolver<unknown, unknown>>> = {};
 
@@ -89,13 +95,17 @@ export class AppSyncOfflineServer {
           continue;
         }
 
-        resolverMap[typeName][fieldName] = async (source, args, _context) => {
+        resolverMap[typeName][fieldName] = async (source, args, context) => {
+          const ctx2 = context as Record<string, unknown>;
+          const reqIdentity = ctx2?.['_identityOverride'] as string | undefined;
+          const traceId = ctx2?.['_traceId'] as string | undefined;
+          const effectiveIdentity = (reqIdentity as import('../../shared/types').IdentityType) ?? this.config.identity.type;
           const ctx = buildContext({
             fieldName,
             parentTypeName: typeName,
             args: args as Record<string, unknown>,
             source: source as Record<string, unknown> | null,
-            identityType: this.config.identity.type,
+            identityType: effectiveIdentity,
           });
 
           const result = await executeResolver({
@@ -107,6 +117,8 @@ export class AppSyncOfflineServer {
             requestCode: resolverDef?.requestMappingTemplate,
             responseCode: resolverDef?.responseMappingTemplate,
             dataSourceName: resolverDef?.dataSource,
+            traceId,
+            identityType: effectiveIdentity,
           });
 
           // Emit logs
@@ -148,10 +160,13 @@ export class AppSyncOfflineServer {
 
       const resolverMap = this.buildResolvers();
 
+      const identityOverride = req.headers['x-appsync-identity'] as string | undefined;
+      const traceId = `trace-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
       const result = await graphql({
         schema: this.schema,
         source: query,
         rootValue: {},
+        contextValue: { _identityOverride: identityOverride, _traceId: traceId },
         variableValues: variables,
         operationName,
         fieldResolver: (source, args, contextValue, info) => {

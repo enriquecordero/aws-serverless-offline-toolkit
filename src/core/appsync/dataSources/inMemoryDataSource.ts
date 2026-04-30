@@ -64,6 +64,14 @@ export class InMemoryDataSource {
     return Array.from(this.store.keys());
   }
 
+  clearTable(tableName: string): void {
+    this.store.delete(tableName);
+  }
+
+  clearAll(): void {
+    this.store.clear();
+  }
+
   findByAttributes(tableName: string, attrs: Record<string, unknown>): Record<string, unknown> | null {
     const table = this.store.get(tableName);
     if (!table) { return null; }

@@ -68,6 +68,8 @@ export interface ResolverLog {
   input: unknown;
   output: unknown;
   durationMs: number;
+  traceId?: string;
+  identityType?: string;
 }
 
 // ─── CDK Diff Types ──────────────────────────────────────────────────────────

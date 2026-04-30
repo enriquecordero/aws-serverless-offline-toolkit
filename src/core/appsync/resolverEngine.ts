@@ -60,12 +60,14 @@ export async function executeResolver(opts: {
   requestCode?: string;
   responseCode?: string;
   dataSourceName?: string;
+  traceId?: string;
+  identityType?: string;
 }): Promise<ResolverResult> {
   const logs: ResolverLog[] = [];
   const errors: Array<{ message: string; type?: string }> = [];
   let result: unknown = null;
 
-  const { typeName, fieldName, ctx, requestCode, responseCode } = opts;
+  const { typeName, fieldName, ctx, requestCode, responseCode, traceId, identityType } = opts;
 
   // Phase 1: request
   let requestResult: unknown;
@@ -78,12 +80,9 @@ export async function executeResolver(opts: {
     }
     logs.push({
       timestamp: new Date().toISOString(),
-      typeName,
-      fieldName,
-      phase: 'request',
-      input: ctx.arguments,
-      output: requestResult,
-      durationMs: Date.now() - reqStart,
+      typeName, fieldName, phase: 'request',
+      input: ctx.arguments, output: requestResult,
+      durationMs: Date.now() - reqStart, traceId, identityType,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -91,7 +90,8 @@ export async function executeResolver(opts: {
     logs.push({
       timestamp: new Date().toISOString(),
       typeName, fieldName, phase: 'error',
-      input: ctx.arguments, output: msg, durationMs: Date.now() - reqStart,
+      input: ctx.arguments, output: msg,
+      durationMs: Date.now() - reqStart, traceId, identityType,
     });
     return { data: null, logs, errors };
   }
@@ -111,7 +111,8 @@ export async function executeResolver(opts: {
     logs.push({
       timestamp: new Date().toISOString(),
       typeName, fieldName, phase: 'response',
-      input: dsResult, output: result, durationMs: Date.now() - resStart,
+      input: dsResult, output: result,
+      durationMs: Date.now() - resStart, traceId, identityType,
     });
   } catch (err: unknown) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -119,7 +120,8 @@ export async function executeResolver(opts: {
     logs.push({
       timestamp: new Date().toISOString(),
       typeName, fieldName, phase: 'error',
-      input: dsResult, output: msg, durationMs: Date.now() - resStart,
+      input: dsResult, output: msg,
+      durationMs: Date.now() - resStart, traceId, identityType,
     });
     return { data: null, logs, errors };
   }

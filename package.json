@@ -86,6 +86,16 @@
         "command": "awsToolkit.validateEnvVars",
         "title": "AWS: Validate Environment Variables",
         "icon": "$(symbol-variable)"
+      },
+      {
+        "command": "awsToolkit.reloadMockData",
+        "title": "AWS: Reload Mock Data",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "awsToolkit.seedFromCdk",
+        "title": "AWS: Generate Mock Data from CDK",
+        "icon": "$(database)"
       }
     ],
     "menus": {

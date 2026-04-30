@@ -1,0 +1,182 @@
+{
+  "name": "aws-serverless-offline-toolkit",
+  "displayName": "AWS Serverless Offline Toolkit",
+  "description": "Local AppSync simulator and CDK diff explainer for AWS developers",
+  "version": "0.1.8",
+  "publisher": "ec-dev-studio",
+  "icon": "media/icon.png",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/enriquecordero/aws-serverless-offline-toolkit.git"
+  },
+  "homepage": "https://github.com/enriquecordero/aws-serverless-offline-toolkit#readme",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Debuggers",
+    "Testing"
+  ],
+  "keywords": [
+    "aws",
+    "appsync",
+    "cdk",
+    "graphql",
+    "serverless",
+    "offline"
+  ],
+  "activationEvents": [
+    "onCommand:awsToolkit.startAppSyncOffline",
+    "onCommand:awsToolkit.stopAppSyncOffline",
+    "onCommand:awsToolkit.detectAppSyncProject",
+    "onCommand:awsToolkit.detectAndStartAppSyncOffline",
+    "onCommand:awsToolkit.validateAppSyncSetup",
+    "onCommand:awsToolkit.runCdkDiffExplainer",
+    "onCommand:awsToolkit.validateStackIntent",
+    "onCommand:awsToolkit.synthAndValidateStackIntent",
+    "workspaceContains:**/schema.graphql",
+    "workspaceContains:**/cdk.json"
+  ],
+  "main": "./out/extension/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "awsToolkit.startAppSyncOffline",
+        "title": "AWS: Start AppSync Offline Server",
+        "icon": "$(play)"
+      },
+      {
+        "command": "awsToolkit.stopAppSyncOffline",
+        "title": "AWS: Stop AppSync Offline Server",
+        "icon": "$(stop)"
+      },
+      {
+        "command": "awsToolkit.detectAppSyncProject",
+        "title": "AWS: Detect AppSync Project",
+        "icon": "$(search)"
+      },
+      {
+        "command": "awsToolkit.detectAndStartAppSyncOffline",
+        "title": "AWS: Detect and Start AppSync Offline",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "awsToolkit.validateAppSyncSetup",
+        "title": "AWS: Validate AppSync Setup",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "awsToolkit.runCdkDiffExplainer",
+        "title": "AWS: Run CDK Diff Explainer",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "awsToolkit.validateStackIntent",
+        "title": "AWS: Validate Stack Intent (cdk.out)",
+        "icon": "$(checklist)"
+      },
+      {
+        "command": "awsToolkit.synthAndValidateStackIntent",
+        "title": "AWS: Synth and Validate Stack Intent",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "awsToolkit.validateEnvVars",
+        "title": "AWS: Validate Environment Variables",
+        "icon": "$(symbol-variable)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "command": "awsToolkit.startAppSyncOffline",
+          "when": "resourceFilename == schema.graphql",
+          "group": "aws"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AWS Serverless Offline Toolkit",
+      "properties": {
+        "awsToolkit.appsync.port": {
+          "type": "number",
+          "default": 4000,
+          "description": "Port for local AppSync server"
+        },
+        "awsToolkit.appsync.mockIdentity": {
+          "type": "string",
+          "enum": [
+            "apiKey",
+            "cognitoUser",
+            "iam",
+            "admin",
+            "guest"
+          ],
+          "default": "apiKey",
+          "description": "Mock identity type for AppSync context"
+        },
+        "awsToolkit.appsync.schemaPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional schema path (file or directory). Absolute or relative to a workspace folder."
+        },
+        "awsToolkit.appsync.resolversPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional resolvers directory path. Absolute or relative to a workspace folder."
+        },
+        "awsToolkit.appsync.mockDataPath": {
+          "type": "string",
+          "default": "",
+          "description": "Optional mock-data JSON file path. Absolute or relative to a workspace folder."
+        },
+        "awsToolkit.cdkDiff.stackName": {
+          "type": "string",
+          "default": "",
+          "description": "Specific CDK stack to diff (empty = all stacks)"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run bundle:prod",
+    "compile": "tsc --noEmit",
+    "bundle": "node esbuild.js",
+    "bundle:prod": "node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "test:offline": "node scripts/run-offline-tests.js",
+    "test:offline:example": "node scripts/run-offline-tests.js --schema example/schema.graphql --mock example/mock-data.json --suite scripts/test-suites/example-suite.json",
+    "test:offline:ci": "node scripts/run-ci-offline-tests.js",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish:vsce": "vsce publish",
+    "publish:patch": "npm run release:patch",
+    "publish:minor": "npm run release:minor",
+    "prepublish:check": "npm run compile && npm run test:offline:example",
+    "release": "node scripts/release.js",
+    "release:patch": "node scripts/release.js patch",
+    "release:minor": "node scripts/release.js minor"
+  },
+  "dependencies": {
+    "@graphql-tools/schema": "^10.0.3",
+    "chokidar": "^3.5.3",
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "graphql": "^16.8.1",
+    "graphql-tag": "^2.12.6"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.0.0",
+    "@types/vscode": "^1.85.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/vsce": "^3.6.2",
+    "esbuild": "^0.28.0",
+    "eslint": "^8.56.0",
+    "typescript": "^5.3.3"
+  }
+}

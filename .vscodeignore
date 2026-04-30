@@ -1,0 +1,16 @@
+.vscode/**
+.vscode-test/**
+src/**
+!out/**
+node_modules/**
+!node_modules/fsevents/**
+esbuild.js
+.gitignore
+tsconfig.json
+.eslintrc*
+**/*.map
+example/**
+.env
+.env.*
+**/.env
+**/.env.*

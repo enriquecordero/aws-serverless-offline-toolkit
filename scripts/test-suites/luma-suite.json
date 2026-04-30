@@ -1,0 +1,147 @@
+{
+    "name": "LUMA API — Full Smoke Suite",
+    "tests": [
+        {
+            "name": "healthCheck — status healthy",
+            "query": "query { healthCheck { status dynamodb timestamp } }",
+            "expect": [
+                {
+                    "path": "data.healthCheck.status",
+                    "equals": "healthy"
+                },
+                {
+                    "path": "data.healthCheck.dynamodb",
+                    "equals": true
+                },
+                {
+                    "path": "data.healthCheck.timestamp",
+                    "notNull": true
+                }
+            ]
+        },
+        {
+            "name": "getFeatureFlags — all flags enabled",
+            "query": "query { getFeatureFlags { autopay turnos outageReporting scheduledPayments subsidies } }",
+            "expect": [
+                {
+                    "path": "data.getFeatureFlags.autopay",
+                    "equals": true
+                },
+                {
+                    "path": "data.getFeatureFlags.turnos",
+                    "equals": true
+                },
+                {
+                    "path": "data.getFeatureFlags.outageReporting",
+                    "equals": true
+                }
+            ]
+        },
+        {
+            "name": "getTurnosServices — catalog not empty",
+            "query": "query { getTurnosServices { id name estimatedDurationMinutes requiresDocuments } }",
+            "expect": [
+                {
+                    "path": "data.getTurnosServices",
+                    "notNull": true
+                }
+            ]
+        },
+        {
+            "name": "getTurnosLocations — office list",
+            "query": "query { getTurnosLocations { id name address latitude longitude } }",
+            "expect": [
+                {
+                    "path": "data.getTurnosLocations",
+                    "notNull": true
+                }
+            ]
+        },
+        {
+            "name": "getTurnosAvailability — slot list",
+            "query": "query { getTurnosAvailability(locationId: \"1\", serviceId: \"1\", date: \"2026-05-01\") { date locationId slots { id startTime isAvailable } } }",
+            "expect": [
+                {
+                    "path": "data.getTurnosAvailability.date",
+                    "notNull": true
+                },
+                {
+                    "path": "data.getTurnosAvailability.slots",
+                    "notNull": true
+                }
+            ]
+        },
+        {
+            "name": "getMyAppointments — returns array",
+            "query": "query { getMyAppointments { id status } }",
+            "expect": [
+                {
+                    "path": "data.getMyAppointments",
+                    "notNull": true
+                }
+            ]
+        },
+        {
+            "name": "getServiceCatalog — services list",
+            "query": "query { getServiceCatalog { id name description estimatedSlaDays isAvailable } }",
+            "expect": [
+                {
+                    "path": "data.getServiceCatalog",
+                    "notNull": true
+                }
+            ]
+        },
+        {
+            "name": "createAppointment — confirmed with code",
+            "query": "mutation { createAppointment(input: { serviceId: \"1\", locationId: \"1\", slotId: \"1\", idempotencyKey: \"demo-001\" }) { id status confirmationCode locationName serviceName } }",
+            "expect": [
+                {
+                    "path": "data.createAppointment.id",
+                    "equals": "APT-001"
+                },
+                {
+                    "path": "data.createAppointment.status",
+                    "equals": "confirmed"
+                },
+                {
+                    "path": "data.createAppointment.confirmationCode",
+                    "equals": "APT-001"
+                }
+            ]
+        },
+        {
+            "name": "cancelAppointment — returns true",
+            "query": "mutation { cancelAppointment(appointmentId: \"APT-001\") }",
+            "expect": [
+                {
+                    "path": "data.cancelAppointment",
+                    "equals": true
+                }
+            ]
+        },
+        {
+            "name": "markAllAsRead — returns true",
+            "query": "mutation { markAllAsRead }",
+            "expect": [
+                {
+                    "path": "data.markAllAsRead",
+                    "equals": true
+                }
+            ]
+        },
+        {
+            "name": "getUploadUrl — presigned URL response",
+            "query": "mutation { getUploadUrl(filename: \"document.pdf\", mimeType: \"application/pdf\") { uploadId presignedUrl expiresAt } }",
+            "expect": [
+                {
+                    "path": "data.getUploadUrl.uploadId",
+                    "equals": "upload-001"
+                },
+                {
+                    "path": "data.getUploadUrl.presignedUrl",
+                    "notNull": true
+                }
+            ]
+        }
+    ]
+}

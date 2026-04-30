@@ -1,0 +1,25 @@
+{
+    "name": "Example Offline Smoke",
+    "tests": [
+        {
+            "name": "Schema introspection typename",
+            "query": "query { __typename }",
+            "expect": [
+                {
+                    "path": "data.__typename",
+                    "equals": "Query"
+                }
+            ]
+        },
+        {
+            "name": "listItems returns non-null connection",
+            "query": "query { listItems { items { id name } scannedCount } }",
+            "expect": [
+                {
+                    "path": "data.listItems",
+                    "notNull": true
+                }
+            ]
+        }
+    ]
+}

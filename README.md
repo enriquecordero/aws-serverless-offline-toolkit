@@ -1,118 +1,86 @@
 # AWS Serverless Offline Toolkit
 
-A VS Code extension to validate AWS serverless behavior before deployment.
+A VS Code extension for fast pre-deploy validation of AWS serverless projects — without waiting on pipelines or cloud deployments.
 
-It provides two core capabilities:
+## Why
 
-- Run AppSync resolvers locally with a realistic `ctx` simulation.
-- Analyze `cdk diff` output with a risk-oriented summary.
+When a pipeline takes 10–20 minutes, small mistakes become expensive. This toolkit is built for developers who want to catch resolver bugs, infrastructure wiring issues, missing environment variables, and risky CDK changes before pushing anything.
 
-## Why This Extension
-
-When pipeline feedback takes 10-20 minutes, small mistakes become expensive. This toolkit is designed for fast pre-deploy checks in local development.
-
-It is especially useful when you need to answer questions like:
-
-- Is this resolver behaving the way I expect before I deploy?
-- Did my schema or resolver change break a query or mutation?
-- Is this `cdk diff` showing a safe change or a risky one?
-- Can I validate intent locally before waiting for a pipeline run?
+It is not a full cloud emulator. The goal is shorter feedback loops and earlier detection of common problems.
 
 ## Features
 
 ### AppSync Offline Studio
 
-- Local GraphQL server for AppSync-style resolver execution.
-- Supports single schema files and multi-file schema folders.
-- Resolver hot reload when schema/resolver files change.
+Run AppSync JavaScript resolvers locally with a realistic `ctx` simulation — no AWS account required.
+
+- Local GraphQL server with AppSync-style context (`arguments`, `identity`, `source`, `stash`, `result`).
+- Supports single schema files and multi-file schema folders with hot reload.
 - Mock identity modes: `apiKey`, `cognitoUser`, `iam`, `admin`, `guest`.
-- Query editor with variables, history, and schema explorer.
-- Setup detection and validation commands for faster onboarding.
+- Query editor with variables, execution history, and schema explorer.
+- In-memory DynamoDB dispatch (`GetItem`, `PutItem`, `UpdateItem`, `DeleteItem`, `Query`, `Scan`).
+- Auto-detection of project layout or explicit path configuration.
 
 ### CDK Diff Explainer
 
-- Runs `cdk diff` and classifies changes by risk.
-- Highlights critical and high-risk infrastructure changes.
-- Generates Markdown reports for reviews and approvals.
+Runs `cdk diff` and classifies every infrastructure change by risk level with actionable explanations.
 
-## Best Fit
+- Critical, high, medium, and low risk classification across Lambda, DynamoDB, IAM, AppSync, S3, Cognito, SQS, and more.
+- Highlights replacements, deletions, and wildcard IAM policies that need review.
+- Exportable Markdown report for engineering reviews and approvals.
 
-This extension is a strong fit for teams working with:
+### CDK Stack Preflight Report
 
-- AWS AppSync with JavaScript resolvers.
-- CDK-based serverless projects.
-- Local-first validation before CI/CD.
-- Fast iteration on schema, resolver, and infrastructure changes.
+Validates synthesized `cdk.out` templates before any deployment — no AWS credentials required.
 
-It is not trying to be a full cloud emulator. The goal is to shorten feedback loops and catch common issues earlier.
+- Checks AppSync resolver → DataSource wiring, Lambda → IAM role references, DynamoDB table targets, and AppSync ServiceRole bindings.
+- Flags wildcard IAM actions and resources.
+- Displays a **confidence score** (0–100) with a readiness label: *Ready to Deploy*, *Minor Issues*, *Review Needed*, *Significant Issues*, or *Not Ready*.
+- One command runs `cdk synth` and validation in a single flow.
+
+### Env Var Preflight
+
+Scans every Lambda function in `cdk.out` and classifies its environment variables before deployment.
+
+- Detects static values, SSM Parameter Store references, Secrets Manager references, CDK intrinsic tokens, cross-stack refs, and empty strings.
+- Supports `.env.local` overrides for offline validation of cloud-backed variables.
+- Shows per-Lambda breakdown with status, source type, and a `.env.local` snippet for any variables that need cloud resolution.
 
 ## Commands
 
-Use the Command Palette and run:
+Open the Command Palette (`Cmd+Shift+P`) and run:
 
-- `AWS: Start AppSync Offline Server`
-- `AWS: Stop AppSync Offline Server`
-- `AWS: Detect AppSync Project`
-- `AWS: Detect and Start AppSync Offline`
-- `AWS: Validate AppSync Setup`
-- `AWS: Run CDK Diff Explainer`
-- `AWS: Validate Stack Intent (cdk.out)`
-- `AWS: Synth and Validate Stack Intent`
-
-## Install
-
-Install the extension from the Visual Studio Code Marketplace and open a workspace that contains an AppSync or CDK project.
-
-This extension is designed for developers who want fast local feedback before waiting on cloud deployment or CI/CD pipelines.
+| Command | Description |
+| --- | --- |
+| `AWS: Start AppSync Offline Server` | Start local GraphQL server |
+| `AWS: Stop AppSync Offline Server` | Stop local server |
+| `AWS: Detect AppSync Project` | Auto-detect schema, resolvers, and mock data |
+| `AWS: Detect and Start AppSync Offline` | Detect project and start server in one step |
+| `AWS: Validate AppSync Setup` | Verify paths and configuration |
+| `AWS: Run CDK Diff Explainer` | Analyze `cdk diff` with risk classification |
+| `AWS: Validate Stack Intent (cdk.out)` | Run preflight checks from synthesized templates |
+| `AWS: Synth and Validate Stack Intent` | Run `cdk synth` then preflight in one flow |
+| `AWS: Validate Environment Variables` | Scan Lambda env vars from `cdk.out` |
 
 ## Quick Start
 
 ### AppSync local validation
 
-1. Open a workspace that contains a GraphQL schema and resolver files.
-2. Run `AWS: Detect AppSync Project` if your project uses a non-trivial layout.
-3. Run `AWS: Validate AppSync Setup` to confirm schema, resolvers, and mock-data paths.
-4. Run `AWS: Detect and Start AppSync Offline` or `AWS: Start AppSync Offline Server`.
-5. Use the panel to execute queries, pass variables, inspect schema, and review resolver output.
-
-What you get:
-
-- A local query runner inside VS Code.
-- Resolver execution with AppSync-style context simulation.
-- Quick schema iteration with hot reload.
-- Faster debugging than deploy-and-test loops.
+1. Open a workspace with a GraphQL schema and resolver files.
+2. Run `AWS: Detect AppSync Project` to auto-configure paths.
+3. Run `AWS: Detect and Start AppSync Offline`.
+4. Execute queries, inspect resolver output, and iterate with hot reload.
 
 ### CDK infrastructure review
 
-1. Open a CDK project workspace.
-2. Ensure `npx cdk diff` works in that project.
-3. Run `AWS: Run CDK Diff Explainer`.
-4. Run `AWS: Validate Stack Intent (cdk.out)` to catch wiring issues from synthesized templates.
-5. Or run `AWS: Synth and Validate Stack Intent` to execute `cdk synth` and validation in one flow.
-6. Review the risk summary before pushing changes into a pipeline.
+1. Make infrastructure changes in your CDK app.
+2. Run `AWS: Run CDK Diff Explainer` to review risk before pushing.
+3. Run `AWS: Synth and Validate Stack Intent` to catch wiring issues from synthesized templates.
+4. Run `AWS: Validate Environment Variables` to confirm all Lambda env vars are resolvable.
 
-Note: if no templates are found in `cdk.out`, run `cdk synth` first.
-The command can also prompt you to run `cdk synth` directly from VS Code.
+## Project Layout
 
-What you get:
-
-- A more readable explanation of infrastructure changes.
-- Risk-oriented findings for review.
-- Exportable output for sharing in engineering workflows.
-- A preflight intent report from `cdk.out` without deploy.
-- Wiring checks for AppSync resolvers and DataSources, Lambda/Dynamo targets, AppSync ServiceRole references, and basic IAM wildcard policy risks.
-
-## What You Need In Your Project
-
-For AppSync workflows, the extension works best when your workspace includes:
-
-- A GraphQL schema file or schema folder.
-- Resolver files for your AppSync operations.
-- Optional `mock-data.json` for local data-backed tests.
-
-For CDK diff workflows, the workspace should contain a valid CDK app where `cdk diff` can run successfully.
-
-## Example AppSync Project Layout
+### AppSync
 
 ```text
 my-appsync-project/
@@ -123,9 +91,21 @@ my-appsync-project/
     Query.getItem.response.js
 ```
 
-Alternative schema organization also works (for example, `lib/schemas/*.graphql`) when discovered or configured.
+Schema folders (`lib/schemas/*.graphql`) are also supported when auto-detected or configured.
 
-## Resolver Example (APPSYNC_JS style)
+### CDK preflight
+
+The extension reads `cdk.out/*.template.json` — run `cdk synth` first if `cdk.out` does not exist. The `AWS: Synth and Validate Stack Intent` command handles this automatically.
+
+For env var validation, add a `.env.local` file at the workspace root to provide values for SSM and Secrets Manager references without cloud access:
+
+```bash
+# .env.local  (excluded from VSIX and git)
+MY_SSM_PARAM=local-override-value
+ANOTHER_SECRET=dev-value
+```
+
+## Resolver Example (APPSYNC_JS)
 
 ```js
 export function request(ctx) {
@@ -140,66 +120,22 @@ export function response(ctx) {
 }
 ```
 
-## Typical AppSync Workflow
-
-1. Detect the project layout or set explicit paths in VS Code settings.
-2. Start the offline server.
-3. Run a query from the AppSync panel.
-4. Adjust schema or resolver code.
-5. Re-run immediately with hot reload instead of waiting for deployment.
-
-## Typical CDK Workflow
-
-1. Make infrastructure changes in your CDK app.
-2. Run `AWS: Run CDK Diff Explainer`.
-3. Review risky replacements, deletions, or auth-related changes.
-4. Export the report if you need to share the result with your team.
-5. Push with more confidence once the diff looks correct.
-
-## Offline Test Scripts
-
-```bash
-npm run test:offline:example
-npm run test:offline -- --schema /path/to/schema.graphql --suite scripts/test-suites/example-suite.json
-npm run test:offline:ci
-```
-
-## CDK Diff Usage
-
-1. Open a CDK project workspace.
-2. Run `AWS: Run CDK Diff Explainer`.
-3. Review risk findings and export Markdown if needed.
-
-## Why Teams Use It
-
-- Catch resolver and schema issues before deployment.
-- Review infrastructure intent from `cdk diff` before pipeline execution.
-- Reduce slow feedback loops when CI/CD takes 10 to 20 minutes.
-- Give developers a safer local validation step for serverless changes.
-
-## Current Focus
-
-Today, the extension focuses on:
-
-- AppSync offline workflows.
-- Resolver-oriented local validation.
-- CDK diff analysis inside VS Code.
-
-Planned roadmap items include deeper pre-deploy validation for Lambda flows, resolver debugging, and CDK-oriented validation from synthesized stack output.
-
 ## Configuration
 
-Settings keys:
+| Setting | Default | Description |
+| --- | --- | --- |
+| `awsToolkit.appsync.port` | `4000` | Local AppSync server port |
+| `awsToolkit.appsync.mockIdentity` | `apiKey` | Default mock identity type |
+| `awsToolkit.appsync.schemaPath` | — | Schema file or directory path |
+| `awsToolkit.appsync.resolversPath` | — | Resolvers directory path |
+| `awsToolkit.appsync.mockDataPath` | — | `mock-data.json` file path |
+| `awsToolkit.cdkDiff.stackName` | — | Specific CDK stack to diff (empty = all) |
 
-- `awsToolkit.appsync.port`
-- `awsToolkit.appsync.mockIdentity`
-- `awsToolkit.appsync.schemaPath`
-- `awsToolkit.appsync.resolversPath`
-- `awsToolkit.appsync.mockDataPath`
-- `awsToolkit.cdkDiff.stackName`
+## Best Fit
 
-## Security Notes
+Teams working with:
 
-- Never include `.env` or secrets in a VSIX package.
-- Use PAT credentials through environment variables.
-- Rotate tokens immediately if exposed.
+- AWS AppSync with JavaScript resolvers.
+- CDK-based serverless stacks.
+- Local-first development before CI/CD.
+- Fast iteration on schema, resolver, and infrastructure changes.

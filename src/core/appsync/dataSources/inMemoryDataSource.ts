@@ -19,13 +19,14 @@ export class InMemoryDataSource {
     return this.store.get(tableName)?.get(key) ?? null;
   }
 
-  putItem(tableName: string, item: Record<string, unknown>): Record<string, unknown> {
+  // explicitKey allows composite-key storage without forcing an 'id' field
+  putItem(tableName: string, item: Record<string, unknown>, explicitKey?: string): Record<string, unknown> {
     if (!this.store.has(tableName)) {
       this.store.set(tableName, new Map());
     }
-    const id = (item['id'] as string) ?? $util.autoId();
-    const newItem = { ...item, id };
-    this.store.get(tableName)!.set(id, newItem);
+    const storageKey = explicitKey ?? (item['id'] as string) ?? $util.autoId();
+    const newItem = explicitKey ? { ...item } : { ...item, id: storageKey };
+    this.store.get(tableName)!.set(storageKey, newItem);
     return newItem;
   }
 
@@ -37,10 +38,22 @@ export class InMemoryDataSource {
     return item;
   }
 
+  deleteByAttributes(tableName: string, attrs: Record<string, unknown>): Record<string, unknown> | null {
+    const table = this.store.get(tableName);
+    if (!table) { return null; }
+    for (const [key, item] of table.entries()) {
+      if (Object.entries(attrs).every(([k, v]) => item[k] == v)) {
+        table.delete(key);
+        return item;
+      }
+    }
+    return null;
+  }
+
   updateItem(tableName: string, key: string, updates: Record<string, unknown>): Record<string, unknown> | null {
     const table = this.store.get(tableName);
     if (!table?.has(key)) { return null; }
-    const updated = { ...table.get(key)!, ...updates, id: key };
+    const updated = { ...table.get(key)!, ...updates };
     table.set(key, updated);
     return updated;
   }

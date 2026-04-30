@@ -2,6 +2,7 @@ import * as vm from 'vm';
 import { AppSyncContext, ResolverLog, PipelineFunction } from '../../shared/types';
 import { $util } from './contextSimulator';
 import { inMemoryStore } from './dataSources/inMemoryDataSource';
+import { evaluateExpression, applyUpdateExpression, buildStorageKey, flattenDdbValue } from './dataSources/expressionEvaluator';
 import { evaluateVtl, isVtlTemplate, VtlError } from './vtlEvaluator';
 import { LambdaHandlerSpec, invokeLambdaLocally, buildAppSyncLambdaEvent } from './lambdaRunner';
 
@@ -321,89 +322,158 @@ async function executePipelineResolver(opts: {
   return { data: finalResult, logs, errors: errors.length > 0 ? errors : undefined };
 }
 
-// ─── Simple data source dispatch ─────────────────────────────────────────────
+// ─── Data source dispatch ──────────────────────────────────────────────────────
 
 function resolveDataSource(dsName: string, request: Record<string, unknown>): unknown {
-  const normalizedDsName = dsName.toUpperCase();
-  if (normalizedDsName === 'NONE' || dsName.toLowerCase() === 'none' || !request) {
-    return request;
-  }
+  if (!dsName || dsName.toUpperCase() === 'NONE' || !request) { return request; }
 
-  // Attempt to interpret a DynamoDB-like operation from the request mapping
   const operation = request['operation'] as string | undefined;
   const tableName = resolveTableName(dsName);
 
+  // Shared expression helpers
+  const globalNames = (request['expressionNames'] as Record<string, string>) ?? {};
+  const globalValues = (request['expressionValues'] as Record<string, unknown>) ?? {};
+
   switch (operation) {
+    // ── GetItem ─────────────────────────────────────────────────────────────
     case 'GetItem': {
-      const key = (request['key'] as Record<string, { S?: string; N?: string }>);
-      const id = key?.['id']?.S ?? key?.['id']?.N;
-      if (id !== undefined && id !== null) {
+      const flatKey = flattenDdbItem((request['key'] as Record<string, unknown>) ?? {});
+      const id = flatKey['id'] as string | undefined;
+      if (id !== undefined) {
         return inMemoryStore.getItem(tableName, String(id));
       }
+      const storageKey = buildStorageKey(flatKey);
+      return inMemoryStore.getItem(tableName, storageKey)
+        ?? inMemoryStore.findByAttributes(tableName, flatKey);
+    }
 
-      const flatKey = flattenDdbItem((request['key'] as Record<string, unknown>) ?? {});
-      return inMemoryStore.findByAttributes(tableName, flatKey);
-    }
+    // ── PutItem ─────────────────────────────────────────────────────────────
     case 'PutItem': {
-      const item = flattenDdbItem(request['attributeValues'] as Record<string, unknown> ?? {});
-      return inMemoryStore.putItem(tableName, item);
+      const flatKey = flattenDdbItem((request['key'] as Record<string, unknown>) ?? {});
+      const flatAttrs = flattenDdbItem((request['attributeValues'] as Record<string, unknown>) ?? {});
+      const item = { ...flatKey, ...flatAttrs };
+      const storageKey = (item['id'] as string) ?? buildStorageKey(flatKey);
+      return inMemoryStore.putItem(tableName, item, Object.keys(flatKey).length ? storageKey : undefined);
     }
+
+    // ── DeleteItem ───────────────────────────────────────────────────────────
     case 'DeleteItem': {
-      const key = (request['key'] as Record<string, { S?: string }>);
-      const id = key?.['id']?.S;
-      if (id) {
-        return inMemoryStore.deleteItem(tableName, id);
-      }
-      return null;
+      const flatKey = flattenDdbItem((request['key'] as Record<string, unknown>) ?? {});
+      const id = flatKey['id'] as string | undefined;
+      if (id !== undefined) { return inMemoryStore.deleteItem(tableName, String(id)); }
+      const storageKey = buildStorageKey(flatKey);
+      return inMemoryStore.deleteItem(tableName, storageKey)
+        ?? inMemoryStore.deleteByAttributes(tableName, flatKey);
     }
+
+    // ── UpdateItem ───────────────────────────────────────────────────────────
     case 'UpdateItem': {
-      const key = (request['key'] as Record<string, { S?: string }>);
-      const id = key?.['id']?.S ?? '';
-      const updates = flattenDdbItem(request['attributeValues'] as Record<string, unknown> ?? {});
-      return inMemoryStore.updateItem(tableName, id, updates);
-    }
-    case 'Scan':
-    case 'Query':
-      {
-        const items = inMemoryStore.listItems(tableName);
-        return {
-          items,
-          scannedCount: inMemoryStore.scan(tableName).length,
-          nextCursor: null,
-          hasMore: false,
-          unreadCount: items.filter(i => i && i['isRead'] === false).length,
-        };
+      const flatKey = flattenDdbItem((request['key'] as Record<string, unknown>) ?? {});
+      const id = flatKey['id'] as string | undefined;
+      const storageKey = id !== undefined ? String(id) : buildStorageKey(flatKey);
+
+      const existing = inMemoryStore.getItem(tableName, storageKey)
+        ?? inMemoryStore.findByAttributes(tableName, flatKey)
+        ?? {};
+
+      // UpdateExpression (SET / REMOVE / ADD)
+      const updateBlock = request['update'] as { expression?: string; expressionNames?: Record<string, string>; expressionValues?: Record<string, unknown> } | undefined;
+      const expression = updateBlock?.expression ?? (request['expression'] as string | undefined);
+      const exprNames = { ...globalNames, ...(updateBlock?.expressionNames ?? {}) };
+      const exprValues = { ...globalValues, ...(updateBlock?.expressionValues ?? {}) };
+
+      let updated: Record<string, unknown>;
+      if (expression) {
+        updated = applyUpdateExpression({ ...existing, ...flatKey }, expression, exprNames, exprValues);
+      } else {
+        const attrs = flattenDdbItem((request['attributeValues'] as Record<string, unknown>) ?? {});
+        updated = { ...existing, ...flatKey, ...attrs };
       }
+
+      inMemoryStore.putItem(tableName, updated, storageKey);
+      return updated;
+    }
+
+    // ── Query ────────────────────────────────────────────────────────────────
+    case 'Query': {
+      const queryBlock = request['query'] as { expression?: string; expressionNames?: Record<string, string>; expressionValues?: Record<string, unknown> } | undefined;
+      const filterBlock = request['filter'] as { expression?: string; expressionNames?: Record<string, string>; expressionValues?: Record<string, unknown> } | undefined;
+      const limit = (request['limit'] as number | undefined) ?? Infinity;
+      const nextToken = request['nextToken'] as string | undefined;
+      const scanIndexForward = request['scanIndexForward'] !== false;
+
+      const keyNames = { ...globalNames, ...(queryBlock?.expressionNames ?? {}) };
+      const keyValues = { ...globalValues, ...(queryBlock?.expressionValues ?? {}) };
+      const filterNames = { ...globalNames, ...(filterBlock?.expressionNames ?? {}) };
+      const filterValues = { ...globalValues, ...(filterBlock?.expressionValues ?? {}) };
+
+      let items = inMemoryStore.scan(tableName);
+
+      if (queryBlock?.expression) {
+        items = items.filter(item => evaluateExpression(queryBlock.expression!, item, keyNames, keyValues));
+      }
+      if (filterBlock?.expression) {
+        items = items.filter(item => evaluateExpression(filterBlock.expression!, item, filterNames, filterValues));
+      }
+      if (!scanIndexForward) { items = [...items].reverse(); }
+
+      return paginate(items, limit, nextToken);
+    }
+
+    // ── Scan ─────────────────────────────────────────────────────────────────
+    case 'Scan': {
+      const filterBlock = request['filter'] as { expression?: string; expressionNames?: Record<string, string>; expressionValues?: Record<string, unknown> } | undefined;
+      const limit = (request['limit'] as number | undefined) ?? Infinity;
+      const nextToken = request['nextToken'] as string | undefined;
+
+      const filterNames = { ...globalNames, ...(filterBlock?.expressionNames ?? {}) };
+      const filterValues = { ...globalValues, ...(filterBlock?.expressionValues ?? {}) };
+
+      let items = inMemoryStore.scan(tableName);
+      if (filterBlock?.expression) {
+        items = items.filter(item => evaluateExpression(filterBlock.expression!, item, filterNames, filterValues));
+      }
+
+      return paginate(items, limit, nextToken);
+    }
+
     default:
-      return request; // passthrough
+      return request; // passthrough for unknown operations
   }
+}
+
+function paginate(
+  items: Record<string, unknown>[],
+  limit: number,
+  nextToken?: string,
+): { items: Record<string, unknown>[]; nextToken: string | null; scannedCount: number } {
+  let startIdx = 0;
+  if (nextToken) {
+    try { startIdx = parseInt(Buffer.from(nextToken, 'base64').toString('utf8'), 10) + 1; } catch { /* ignore */ }
+  }
+  const effectiveLimit = isFinite(limit) ? limit : items.length;
+  const page = items.slice(startIdx, startIdx + effectiveLimit);
+  const endIdx = startIdx + page.length - 1;
+  const hasMore = endIdx < items.length - 1 && page.length > 0;
+  const outToken = hasMore ? Buffer.from(String(endIdx)).toString('base64') : null;
+  return { items: page, nextToken: outToken, scannedCount: items.length };
 }
 
 function flattenDdbItem(attrs: Record<string, unknown>): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(attrs)) {
-    const typed = v as Record<string, unknown>;
-    result[k] = typed['S'] ?? typed['N'] ?? typed['BOOL'] ?? typed['NULL'] ?? v;
+    result[k] = flattenDdbValue(v);
   }
   return result;
 }
 
 function resolveTableName(dsName: string): string {
-  if (inMemoryStore.hasTable(dsName)) {
-    return dsName;
-  }
-
-  const noTableSuffix = dsName.replace(/Table$/i, '');
-  if (inMemoryStore.hasTable(noTableSuffix)) {
-    return noTableSuffix;
-  }
-
-  const lower = noTableSuffix.toLowerCase();
+  if (inMemoryStore.hasTable(dsName)) { return dsName; }
+  const noSuffix = dsName.replace(/Table$/i, '');
+  if (inMemoryStore.hasTable(noSuffix)) { return noSuffix; }
+  const lower = noSuffix.toLowerCase();
   for (const candidate of inMemoryStore.tableNames()) {
-    if (candidate.toLowerCase() === lower || candidate.toLowerCase().includes(lower)) {
-      return candidate;
-    }
+    if (candidate.toLowerCase() === lower || candidate.toLowerCase().includes(lower)) { return candidate; }
   }
-
   return dsName;
 }

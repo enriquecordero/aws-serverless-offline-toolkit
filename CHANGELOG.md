@@ -37,6 +37,17 @@ All notable changes to this project will be documented in this file.
   - Lambda data sources are now resolved end-to-end in `resolverEngine` when a handler spec is registered: request template → Lambda invocation → response template.
   - New settings: `awsToolkit.appsync.lambdaHandlers` (map of data source name → `"path/to/handler.ts#exportName"`) and `awsToolkit.appsync.lambdaDebugPort` (default `9229`).
   - Debug session banner appears in the panel while the debugger is attached; result or error banner appears on completion.
+- **Pipeline Resolver support** — resolvers declared as `TypeName.fieldName.pipeline.json` are now executed as AppSync pipeline resolvers:
+  - `before` template (optional `.before.js/.vtl`) runs first and can populate `ctx.stash`.
+  - Each function in the `functions` array runs in order: request template → data source → response template.
+  - `ctx.stash` is shared across all steps; `ctx.prev.result` carries each function's output to the next.
+  - Any step failure short-circuits the pipeline and returns immediately with the error and step label.
+  - JS and VTL functions are supported independently per function.
+  - Lambda data sources work per function using the same `lambdaHandlers` config.
+  - `after` template (optional `.after.js/.vtl`) runs last with `ctx.prev.result` from the final function.
+  - Resolver trace shows per-step labels: `[before]`, `FunctionName`, `FunctionName:lambda`, `[after]`.
+  - Log panel shows an amber step badge for each pipeline log entry.
+  - Function files live in `resolvers/functions/<FunctionName>.request.js` (or `.vtl`).
 - **Timeout Mismatch Detector (Phase 15)** — integrated into the CDK Preflight Report. Detects API Gateway integration timeout shorter than Lambda timeout (504 risk), AppSync Lambda data source exceeding the 30s resolver limit, SQS visibility timeout shorter than Lambda timeout (duplicate processing risk), and Lambda functions configured at the 900s maximum.
 
 ## [0.1.8] - 2026-04-30

@@ -7,6 +7,7 @@ import { runCdkDiffExplainer } from './commands/runCdkDiffExplainer';
 import { synthAndValidateStackIntentCommand, validateStackIntentCommand } from './commands/validateStackIntent';
 import { validateEnvVarsCommand } from './commands/validateEnvVars';
 import { AppSyncPanel } from './webviews/appsyncPanel';
+import { ServiceMapPanel } from './webviews/serviceMapPanel';
 import { reloadMockDataCommand, seedFromCdkCommand } from './commands/reloadMockData';
 
 export function activate(context: vscode.ExtensionContext): void {
@@ -60,6 +61,11 @@ export function activate(context: vscode.ExtensionContext): void {
 
   context.subscriptions.push(
     vscode.commands.registerCommand('awsToolkit.seedFromCdk', seedFromCdkCommand)
+  );
+
+  // ── Service Map ──────────────────────────────────────────────────────────
+  context.subscriptions.push(
+    vscode.commands.registerCommand('awsToolkit.generateServiceMap', () => ServiceMapPanel.createOrShow())
   );
 
   // ── Status bar buttons ───────────────────────────────────────────────────

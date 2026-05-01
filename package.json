@@ -88,6 +88,11 @@
         "command": "awsToolkit.seedFromCdk",
         "title": "AWS: Generate Mock Data from CDK",
         "icon": "$(database)"
+      },
+      {
+        "command": "awsToolkit.generateServiceMap",
+        "title": "AWS: Generate Service Map",
+        "icon": "$(type-hierarchy)"
       }
     ],
     "menus": {

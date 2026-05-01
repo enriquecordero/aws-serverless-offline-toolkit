@@ -1,0 +1,1074 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>AWS Serverless Offline Toolkit — Guía de pruebas</title>
+<style>
+  :root {
+    --bg: #0d1117; --surface: #161b22; --surface2: #1c2128; --border: #30363d;
+    --accent: #f78166; --accent2: #79c0ff; --accent3: #a5d6ff;
+    --success: #56d364; --warning: #e3b341; --purple: #d2a8ff;
+    --text: #e6edf3; --muted: #8b949e; --code-bg: #161b22;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, 'Segoe UI', system-ui, sans-serif; font-size: 14px; line-height: 1.6; }
+
+  /* ── Header ── */
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 20px 32px; position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: space-between; }
+  .logo { display: flex; align-items: center; gap: 12px; }
+  .logo-icon { width: 32px; height: 32px; background: linear-gradient(135deg, #f78166, #79c0ff); border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 16px; }
+  .logo h1 { font-size: 15px; font-weight: 700; color: var(--accent2); }
+  .logo span { font-size: 11px; color: var(--muted); display: block; margin-top: 1px; }
+  .progress-bar { width: 200px; }
+  .progress-label { font-size: 11px; color: var(--muted); margin-bottom: 4px; text-align: right; }
+  .progress-track { height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+  .progress-fill { height: 100%; background: linear-gradient(90deg, #79c0ff, #56d364); border-radius: 99px; transition: width 0.4s ease; width: 0%; }
+
+  /* ── Layout ── */
+  .wrapper { max-width: 900px; margin: 0 auto; padding: 40px 24px 80px; }
+
+  /* ── Intro ── */
+  .intro { background: linear-gradient(135deg, #1a2332, #162032); border: 1px solid #2d4a6e; border-radius: var(--radius); padding: 28px 32px; margin-bottom: 40px; }
+  .intro h2 { font-size: 20px; color: var(--accent2); margin-bottom: 8px; }
+  .intro p { color: var(--muted); font-size: 13px; max-width: 640px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 999px; padding: 3px 10px; font-size: 11px; color: var(--muted); }
+  .badge.green { border-color: #2d5a2d; color: var(--success); background: #1a2d1a; }
+
+  /* ── Section ── */
+  .section { margin-bottom: 48px; }
+  .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+  .section-num { width: 28px; height: 28px; border-radius: 50%; background: var(--surface2); border: 2px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; color: var(--muted); flex-shrink: 0; }
+  .section-num.active { border-color: var(--accent2); color: var(--accent2); }
+  .section h2 { font-size: 17px; font-weight: 700; color: var(--text); }
+  .section-desc { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Steps ── */
+  .step { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; transition: border-color 0.2s; }
+  .step.done { border-color: #2d5a2d; }
+  .step-head { padding: 14px 16px; display: flex; align-items: flex-start; gap: 12px; cursor: pointer; }
+  .step-check { width: 18px; height: 18px; border: 2px solid var(--border); border-radius: 4px; flex-shrink: 0; margin-top: 1px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.15s; }
+  .step.done .step-check { background: var(--success); border-color: var(--success); }
+  .step-check svg { display: none; }
+  .step.done .step-check svg { display: block; }
+  .step-title { font-size: 13px; font-weight: 600; color: var(--text); }
+  .step.done .step-title { color: var(--muted); text-decoration: line-through; text-decoration-color: #3a4a3a; }
+  .step-tag { font-size: 10px; padding: 2px 7px; border-radius: 999px; margin-left: 8px; font-weight: 600; letter-spacing: 0.04em; }
+  .tag-action { background: #1f3a5f; color: #79c0ff; }
+  .tag-expect { background: #1f4a2a; color: #56d364; }
+  .tag-config { background: #3a2a1f; color: #e3b341; }
+  .tag-code { background: #2a1f3a; color: #d2a8ff; }
+  .step-body { padding: 0 16px 16px 46px; display: none; }
+  .step.open .step-body { display: block; }
+  .step-body p { font-size: 13px; color: var(--muted); margin-bottom: 10px; }
+
+  /* ── Code blocks ── */
+  .code-wrap { position: relative; margin: 10px 0; }
+  pre { background: #0d1117; border: 1px solid var(--border); border-radius: 6px; padding: 14px 16px; font-family: 'Cascadia Code', 'JetBrains Mono', 'Fira Code', monospace; font-size: 12px; line-height: 1.6; overflow-x: auto; white-space: pre; }
+  .copy-btn { position: absolute; top: 8px; right: 8px; background: var(--surface2); border: 1px solid var(--border); color: var(--muted); border-radius: 4px; padding: 3px 8px; font-size: 10px; cursor: pointer; transition: all 0.15s; }
+  .copy-btn:hover { color: var(--text); border-color: var(--accent2); }
+  .copy-btn.copied { color: var(--success); border-color: var(--success); }
+
+  /* ── Expect box ── */
+  .expect { background: #0e1f0e; border: 1px solid #2d5a2d; border-radius: 6px; padding: 12px 14px; margin: 10px 0; font-size: 12px; }
+  .expect-title { color: var(--success); font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .expect p { color: #7ac97a; }
+  .expect code { background: #1a2d1a; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+  .warn-box { background: #1f1a0e; border: 1px solid #4a3a0e; border-radius: 6px; padding: 12px 14px; margin: 10px 0; font-size: 12px; }
+  .warn-box .expect-title { color: var(--warning); }
+  .warn-box p { color: #c9a333; }
+  .info-box { background: #0e1a2d; border: 1px solid #1f3a5f; border-radius: 6px; padding: 12px 14px; margin: 10px 0; font-size: 12px; }
+  .info-box .expect-title { color: var(--accent2); }
+  .info-box p { color: #6ab0d4; }
+  .info-box code { background: #162033; padding: 1px 5px; border-radius: 3px; font-size: 11px; }
+
+  /* ── Syntax colors ── */
+  .kw { color: #ff7b72; } .str { color: #a5d6ff; } .fn { color: #d2a8ff; }
+  .cm { color: #6e7681; font-style: italic; } .num { color: #79c0ff; }
+  .key { color: #7ee787; } .op { color: #ff7b72; }
+
+  /* ── VS Code Explorer Widget ── */
+  .vscode-explorer { background: #1e1e1e; border: 1px solid #3c3c3c; border-radius: 6px; overflow: hidden; margin: 12px 0; font-family: -apple-system, 'Segoe UI', Roboto, system-ui, sans-serif; }
+  .vsx-titlebar { background: #252526; border-bottom: 1px solid #3c3c3c; padding: 7px 10px 7px 12px; display: flex; align-items: center; gap: 8px; }
+  .vsx-titlebar .label { font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #bbb; }
+  .vsx-titlebar .sublabel { font-size: 12px; color: #555; }
+  .vsx-tree { padding: 4px 0 6px; }
+  .vsx-row { display: flex; align-items: center; height: 22px; cursor: default; padding-right: 12px; }
+  .vsx-row:hover { background: #2a2d2e; }
+  .vsx-g { width: 16px; height: 22px; flex-shrink: 0; position: relative; }
+  .vsx-g::before { content: ''; position: absolute; left: 8px; top: 0; bottom: 0; width: 1px; background: #3c3c3c; }
+  .vsx-t { width: 16px; height: 22px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #c5c5c5; }
+  .vsx-t::after { content: '▸'; }
+  .vsx-t.open::after { content: '▾'; }
+  .vsx-t.sp::after { content: ''; }
+  .vsx-icon { flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; font-family: 'Consolas','SF Mono',monospace; font-weight: 700; margin-right: 5px; }
+  .icon-folder { width: 15px; height: 14px; position: relative; align-self: center; }
+  .icon-folder::after { content: ''; position: absolute; bottom: 0; left: 0; right: 0; height: 11px; background: #dcb67a; border-radius: 0 2px 2px 2px; }
+  .icon-folder::before { content: ''; position: absolute; top: 0; left: 0; width: 6px; height: 4px; background: #dcb67a; border-radius: 2px 2px 0 0; }
+  .icon-js { background: #f0db4f; color: #1e1e1e; width: 14px; height: 14px; font-size: 7.5px; border-radius: 2px; letter-spacing: -0.02em; }
+  .icon-ts { background: #3178c6; color: #fff; width: 14px; height: 14px; font-size: 7.5px; border-radius: 2px; }
+  .icon-json { color: #f0db4f; font-size: 11px; font-family: monospace; font-weight: 400; width: 16px; letter-spacing: -0.04em; }
+  .icon-graphql { color: #e535ab; font-size: 13px; width: 16px; font-weight: 400; }
+  .icon-vtl { background: #7c3aed; color: #fff; width: 14px; height: 14px; font-size: 6px; border-radius: 2px; letter-spacing: -0.03em; }
+  .icon-pipe { background: #ea580c; color: #fff; width: 14px; height: 14px; font-size: 5.5px; border-radius: 2px; letter-spacing: -0.05em; }
+  .vsx-name { color: #cccccc; font-size: 13px; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vsx-name.is-new { color: #89d185; }
+  .vsx-hint { color: #6a9955; font-size: 11px; padding-right: 8px; white-space: nowrap; font-style: italic; flex-shrink: 0; }
+
+  /* ── Divider ── */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+
+  /* ── Footer ── */
+  footer { text-align: center; padding: 24px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">⚡</div>
+    <div>
+      <h1>AWS Serverless Offline Toolkit</h1>
+      <span>Guía de pruebas — v0.1.9</span>
+    </div>
+  </div>
+  <div class="progress-bar">
+    <div class="progress-label" id="progressLabel">0 / 0 pasos</div>
+    <div class="progress-track"><div class="progress-fill" id="progressFill"></div></div>
+  </div>
+</header>
+
+<div class="wrapper">
+
+  <div class="intro">
+    <h2>Checklist de validación completa</h2>
+    <p>Sigue cada sección en orden. Cada paso tiene qué hacer exactamente y qué resultado esperar. Marca cada uno como completo para rastrear el progreso.</p>
+    <div class="badges">
+      <span class="badge green">JS Resolvers</span>
+      <span class="badge green">VTL Resolvers</span>
+      <span class="badge green">Lambda Debug</span>
+      <span class="badge green">Pipeline Resolvers</span>
+      <span class="badge green">DynamoDB Expressions</span>
+      <span class="badge green">GSI Simulation</span>
+      <span class="badge green">FilterExpression</span>
+      <span class="badge green">Mock Data</span>
+      <span class="badge green">CDK Preflight</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 1 — ESTRUCTURA DEL PROYECTO
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">1</div>
+      <div><h2>Estructura del proyecto CDK</h2><div class="section-desc">Crea el layout mínimo para que la extensión detecte todo automáticamente</div></div>
+    </div>
+
+    <div class="step" id="s1">
+      <div class="step-head" onclick="toggleStep('s1')">
+        <div class="step-check" onclick="checkStep(event,'s1')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Crea el directorio de resolvers y mock data<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Dentro de tu proyecto CDK crea esta estructura. La extensión la detecta automáticamente.</p>
+        <div class="vscode-explorer">
+          <div class="vsx-titlebar">
+            <span class="label">EXPLORER</span>
+            <span class="sublabel">mi-proyecto-cdk</span>
+          </div>
+          <div class="vsx-tree">
+            <div class="vsx-row">
+              <span class="vsx-t open"></span><span class="vsx-icon icon-folder"></span><span class="vsx-name">mi-proyecto-cdk</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-t open"></span><span class="vsx-icon icon-folder"></span><span class="vsx-name">lib</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t open"></span><span class="vsx-icon icon-folder"></span><span class="vsx-name">appsync</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-graphql">◈</span><span class="vsx-name">schema.graphql</span><span class="vsx-hint">← esquema principal</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t open"></span><span class="vsx-icon icon-folder"></span><span class="vsx-name is-new">resolvers</span><span class="vsx-hint">← resolvers JS/VTL/pipeline</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-folder"></span><span class="vsx-name is-new">functions</span><span class="vsx-hint">← funciones de pipeline</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-json">{}</span><span class="vsx-name is-new">mock-data.json</span><span class="vsx-hint">← datos de prueba</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-json">{}</span><span class="vsx-name">cdk.json</span>
+            </div>
+          </div>
+        </div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>Al correr <code>AWS: Detect AppSync Project</code> desde el Command Palette, la extensión debería encontrar el <code>schema.graphql</code> y la carpeta <code>resolvers/</code> automáticamente.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s2">
+      <div class="step-head" onclick="toggleStep('s2')">
+        <div class="step-check" onclick="checkStep(event,'s2')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Crea el schema GraphQL con tipos reales<span class="step-tag tag-code">Código</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Guarda esto como <strong>schema.graphql</strong>. Incluye tipos para probar todos los resolvers.</p>
+        <div class="code-wrap">
+          <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">type</span> <span class="fn">User</span> {
+  id: <span class="fn">ID</span>!
+  name: <span class="str">String</span>!
+  email: <span class="str">String</span>!
+  status: <span class="str">String</span>
+  role: <span class="str">String</span>
+  createdAt: <span class="str">String</span>
+}
+
+<span class="kw">type</span> <span class="fn">Order</span> {
+  id: <span class="fn">ID</span>!
+  userId: <span class="fn">ID</span>!
+  total: <span class="fn">Float</span>!
+  status: <span class="str">String</span>!
+  createdAt: <span class="str">String</span>
+}
+
+<span class="kw">type</span> <span class="fn">UserConnection</span> { items: [<span class="fn">User</span>], nextToken: <span class="str">String</span>, scannedCount: <span class="fn">Int</span> }
+<span class="kw">type</span> <span class="fn">OrderConnection</span> { items: [<span class="fn">Order</span>], nextToken: <span class="str">String</span>, scannedCount: <span class="fn">Int</span> }
+
+<span class="kw">type</span> <span class="fn">Query</span> {
+  getUser(id: <span class="fn">ID</span>!): <span class="fn">User</span>
+  listUsers(limit: <span class="fn">Int</span>, nextToken: <span class="str">String</span>): <span class="fn">UserConnection</span>
+  getUsersByStatus(status: <span class="str">String</span>!): <span class="fn">UserConnection</span>
+  listOrders(userId: <span class="fn">ID</span>!): <span class="fn">OrderConnection</span>
+}
+
+<span class="kw">type</span> <span class="fn">Mutation</span> {
+  createUser(name: <span class="str">String</span>!, email: <span class="str">String</span>!, role: <span class="str">String</span>): <span class="fn">User</span>
+  updateUserStatus(id: <span class="fn">ID</span>!, status: <span class="str">String</span>!): <span class="fn">User</span>
+  deleteUser(id: <span class="fn">ID</span>!): <span class="fn">User</span>
+}
+
+<span class="kw">schema</span> { query: <span class="fn">Query</span>; mutation: <span class="fn">Mutation</span> }</pre>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s3">
+      <div class="step-head" onclick="toggleStep('s3')">
+        <div class="step-check" onclick="checkStep(event,'s3')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Crea mock-data.json con datos de prueba<span class="step-tag tag-config">Config</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Guarda en la raíz del proyecto como <strong>mock-data.json</strong>.</p>
+        <div class="code-wrap">
+          <button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{
+  <span class="key">"User"</span>: [
+    { <span class="key">"id"</span>: <span class="str">"usr-001"</span>, <span class="key">"name"</span>: <span class="str">"Ana García"</span>, <span class="key">"email"</span>: <span class="str">"ana@example.com"</span>, <span class="key">"status"</span>: <span class="str">"active"</span>, <span class="key">"role"</span>: <span class="str">"admin"</span> },
+    { <span class="key">"id"</span>: <span class="str">"usr-002"</span>, <span class="key">"name"</span>: <span class="str">"Carlos Pérez"</span>, <span class="key">"email"</span>: <span class="str">"carlos@example.com"</span>, <span class="key">"status"</span>: <span class="str">"active"</span>, <span class="key">"role"</span>: <span class="str">"user"</span> },
+    { <span class="key">"id"</span>: <span class="str">"usr-003"</span>, <span class="key">"name"</span>: <span class="str">"Laura Soto"</span>, <span class="key">"email"</span>: <span class="str">"laura@example.com"</span>, <span class="key">"status"</span>: <span class="str">"inactive"</span>, <span class="key">"role"</span>: <span class="str">"user"</span> }
+  ],
+  <span class="key">"Order"</span>: [
+    { <span class="key">"id"</span>: <span class="str">"ord-001"</span>, <span class="key">"userId"</span>: <span class="str">"usr-001"</span>, <span class="key">"total"</span>: <span class="num">150.00</span>, <span class="key">"status"</span>: <span class="str">"completed"</span> },
+    { <span class="key">"id"</span>: <span class="str">"ord-002"</span>, <span class="key">"userId"</span>: <span class="str">"usr-001"</span>, <span class="key">"total"</span>: <span class="num">75.50</span>, <span class="key">"status"</span>: <span class="str">"pending"</span> },
+    { <span class="key">"id"</span>: <span class="str">"ord-003"</span>, <span class="key">"userId"</span>: <span class="str">"usr-002"</span>, <span class="key">"total"</span>: <span class="num">200.00</span>, <span class="key">"status"</span>: <span class="str">"completed"</span> }
+  ]
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 2 — ARRANCAR EL SERVIDOR
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">2</div>
+      <div><h2>Arrancar el servidor AppSync Offline</h2><div class="section-desc">Verificar que la extensión detecta el proyecto y levanta en el puerto correcto</div></div>
+    </div>
+
+    <div class="step" id="s4">
+      <div class="step-head" onclick="toggleStep('s4')">
+        <div class="step-check" onclick="checkStep(event,'s4')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Arrancar el servidor<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Abre el Command Palette (<strong>Cmd+Shift+P</strong>) y ejecuta:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>AWS: Detect and Start AppSync Offline</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>1. Si hay múltiples proyectos en el workspace, aparece un Quick Pick para seleccionar.<br>
+          2. La notificación dice: <code>AppSync Offline running at http://localhost:4000/graphql</code><br>
+          3. El panel "AppSync Offline Studio" se abre con el dot verde parpadeando.<br>
+          4. La pestaña Schema muestra todos los tipos del schema.</p>
+        </div>
+        <div class="warn-box">
+          <div class="expect-title">⚠ Si falla</div>
+          <p>Verifica que el archivo se llame exactamente <code>schema.graphql</code> (no <code>.graphqls</code>). La extensión también soporta carpetas con múltiples archivos <code>*.graphql</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s5">
+      <div class="step-head" onclick="toggleStep('s5')">
+        <div class="step-check" onclick="checkStep(event,'s5')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Verificar el health check<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Abre una terminal y ejecuta:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>curl http://localhost:4000/health</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Respuesta esperada</div>
+          <p><code>{"status":"ok","port":4000,"timestamp":"..."}</code></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 3 — RESOLVERS JS
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">3</div>
+      <div><h2>Resolvers JavaScript (APPSYNC_JS)</h2><div class="section-desc">Crear y probar unit resolvers en JS</div></div>
+    </div>
+
+    <div class="step" id="s6">
+      <div class="step-head" onclick="toggleStep('s6')">
+        <div class="step-check" onclick="checkStep(event,'s6')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Crea los resolvers JS básicos<span class="step-tag tag-code">Código</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Crea estos archivos en <strong>resolvers/</strong>:</p>
+        <p><strong>Query.getUser.request.js</strong></p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">request</span>(ctx) {
+  <span class="kw">return</span> {
+    operation: <span class="str">'GetItem'</span>,
+    key: { id: { S: ctx.arguments.id } },
+  };
+}</pre></div>
+        <p><strong>Query.getUser.response.js</strong></p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">response</span>(ctx) {
+  <span class="kw">return</span> ctx.result;
+}</pre></div>
+        <p><strong>Query.listUsers.request.js</strong></p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">request</span>(ctx) {
+  <span class="kw">return</span> {
+    operation: <span class="str">'Scan'</span>,
+    limit: ctx.arguments.limit || <span class="num">20</span>,
+  };
+}</pre></div>
+        <p><strong>Query.listUsers.response.js</strong></p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">response</span>(ctx) {
+  <span class="kw">return</span> ctx.result;
+}</pre></div>
+      </div>
+    </div>
+
+    <div class="step" id="s7">
+      <div class="step-head" onclick="toggleStep('s7')">
+        <div class="step-check" onclick="checkStep(event,'s7')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Probar getUser desde el Query Editor<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>En el panel AppSync Studio, pestaña <strong>Query</strong>, pega y ejecuta con <strong>Ctrl+Enter</strong>:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>query {
+  getUser(id: <span class="str">"usr-001"</span>) {
+    id
+    name
+    email
+    status
+  }
+}</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Respuesta esperada</div>
+          <p><code>{ "data": { "getUser": { "id": "usr-001", "name": "Ana García", "email": "ana@example.com", "status": "active" } } }</code></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s8">
+      <div class="step-head" onclick="toggleStep('s8')">
+        <div class="step-check" onclick="checkStep(event,'s8')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Probar ⚡ All Identities<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Con la misma query activa, haz clic en el botón <strong>⚡ All Identities</strong>.</p>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>La respuesta muestra un objeto con 5 claves: <code>apiKey</code>, <code>cognitoUser</code>, <code>iam</code>, <code>admin</code>, <code>guest</code> — cada uno con el mismo resultado (el resolver no valida identidad en este ejemplo). Los logs muestran 5 trazas agrupadas, cada una con su badge de identidad.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 4 — RESOLVER RUNNER + FILTROS
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">4</div>
+      <div><h2>Resolver Runner &amp; FilterExpression</h2><div class="section-desc">Probar el Resolver Runner directo y los filtros DynamoDB</div></div>
+    </div>
+
+    <div class="step" id="s9">
+      <div class="step-head" onclick="toggleStep('s9')">
+        <div class="step-check" onclick="checkStep(event,'s9')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Crear resolver con FilterExpression<span class="step-tag tag-code">Código</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Crea <strong>Query.getUsersByStatus.request.js</strong>:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">request</span>(ctx) {
+  <span class="kw">return</span> {
+    operation: <span class="str">'Scan'</span>,
+    filter: {
+      expression: <span class="str">'#s = :status'</span>,
+      expressionNames: { <span class="str">'#s'</span>: <span class="str">'status'</span> },
+      expressionValues: { <span class="str">':status'</span>: { S: ctx.arguments.status } },
+    },
+  };
+}
+
+<span class="kw">export function</span> <span class="fn">response</span>(ctx) {
+  <span class="kw">return</span> ctx.result;
+}</pre></div>
+        <div class="info-box">
+          <div class="expect-title">ℹ Nota</div>
+          <p>Puedes poner <code>request</code> y <code>response</code> en el mismo archivo o en archivos separados. Ambos formatos funcionan.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s10">
+      <div class="step-head" onclick="toggleStep('s10')">
+        <div class="step-check" onclick="checkStep(event,'s10')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Ejecutar desde Resolver Runner<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Ve a la pestaña <strong>Resolver Runner</strong> en el panel y completa:</p>
+        <ul style="color:var(--muted);font-size:13px;margin:8px 0 8px 16px;line-height:2;">
+          <li><strong style="color:var(--text)">Type.Field:</strong> <code>Query.getUsersByStatus</code></li>
+          <li><strong style="color:var(--text)">Identity:</strong> <code>cognitoUser</code></li>
+          <li><strong style="color:var(--text)">Arguments:</strong></li>
+        </ul>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{ <span class="key">"status"</span>: <span class="str">"active"</span> }</pre></div>
+        <p>Haz clic en <strong>▶ Run Resolver</strong>.</p>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar en el trace</div>
+          <p>El trace muestra:<br>
+          • <code>[REQUEST]</code> — operación Scan con FilterExpression<br>
+          • <code>[RESPONSE]</code> — items filtrados: solo usr-001 y usr-002 (status = active)<br>
+          • El resultado NO incluye usr-003 (status = inactive)</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s11">
+      <div class="step-head" onclick="toggleStep('s11')">
+        <div class="step-check" onclick="checkStep(event,'s11')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Verificar historial de runs<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Haz clic en <strong>Recent Runs</strong> (abajo del trace) para expandir.</p>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>Aparece la ejecución anterior con ✓ verde, badge de identidad <code>cognitoUser</code> y timestamp. Al hacer clic sobre ella, los campos Type.Field, Identity y Arguments se restauran automáticamente.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 5 — VTL
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">5</div>
+      <div><h2>Resolvers VTL</h2><div class="section-desc">Verificar evaluación local de templates Velocity</div></div>
+    </div>
+
+    <div class="step" id="s12">
+      <div class="step-head" onclick="toggleStep('s12')">
+        <div class="step-check" onclick="checkStep(event,'s12')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Crear un resolver VTL<span class="step-tag tag-code">Código</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Crea <strong>Query.listOrders.request.vtl</strong>:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{
+  <span class="key">"operation"</span>: <span class="str">"Query"</span>,
+  <span class="key">"query"</span>: {
+    <span class="key">"expression"</span>: <span class="str">"userId = :uid"</span>,
+    <span class="key">"expressionValues"</span>: {
+      <span class="key">":uid"</span>: $util.dynamodb.toDynamoDBJson($ctx.args.userId)
+    }
+  }
+}</pre></div>
+        <p>Crea <strong>Query.listOrders.response.vtl</strong>:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>$util.toJson($ctx.result)</pre></div>
+      </div>
+    </div>
+
+    <div class="step" id="s13">
+      <div class="step-head" onclick="toggleStep('s13')">
+        <div class="step-check" onclick="checkStep(event,'s13')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Probar el resolver VTL<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>En Resolver Runner:</p>
+        <ul style="color:var(--muted);font-size:13px;margin:8px 0 8px 16px;line-height:2;">
+          <li><strong style="color:var(--text)">Type.Field:</strong> <code>Query.listOrders</code></li>
+          <li><strong style="color:var(--text)">Arguments:</strong> <code>{ "userId": "usr-001" }</code></li>
+        </ul>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>El trace muestra la operación Query con la expresión VTL ya evaluada. Resultado: <code>items</code> con ord-001 y ord-002 (userId = usr-001), NO ord-003.</p>
+        </div>
+        <div class="info-box">
+          <div class="expect-title">ℹ GSI Simulation</div>
+          <p>Aunque <code>userId</code> no es la PK de la tabla Order, la extensión simula el GSI filtrando todos los items por ese atributo. No necesitas definir el índice explícitamente en <code>mock-data.json</code>.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 6 — PIPELINE RESOLVERS
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">6</div>
+      <div><h2>Pipeline Resolvers</h2><div class="section-desc">Múltiples funciones encadenadas con ctx.stash y ctx.prev.result</div></div>
+    </div>
+
+    <div class="step" id="s14">
+      <div class="step-head" onclick="toggleStep('s14')">
+        <div class="step-check" onclick="checkStep(event,'s14')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Crear la estructura del pipeline<span class="step-tag tag-code">Código</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Agrega la mutación al schema. Luego crea estos archivos:</p>
+        <div class="vscode-explorer">
+          <div class="vsx-titlebar">
+            <span class="label">EXPLORER</span>
+            <span class="sublabel">resolvers/</span>
+          </div>
+          <div class="vsx-tree">
+            <div class="vsx-row">
+              <span class="vsx-t open"></span><span class="vsx-icon icon-folder"></span><span class="vsx-name">resolvers</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-pipe">PIPE</span><span class="vsx-name is-new">Mutation.createUser.pipeline.json</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-js">JS</span><span class="vsx-name is-new">Mutation.createUser.before.js</span><span class="vsx-hint">← opcional</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-js">JS</span><span class="vsx-name is-new">Mutation.createUser.after.js</span><span class="vsx-hint">← opcional</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-t open"></span><span class="vsx-icon icon-folder"></span><span class="vsx-name is-new">functions</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-js">JS</span><span class="vsx-name is-new">ValidateEmail.request.js</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-js">JS</span><span class="vsx-name is-new">ValidateEmail.response.js</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-js">JS</span><span class="vsx-name is-new">SaveUser.request.js</span>
+            </div>
+            <div class="vsx-row">
+              <span class="vsx-g"></span><span class="vsx-g"></span><span class="vsx-t sp"></span><span class="vsx-icon icon-js">JS</span><span class="vsx-name is-new">SaveUser.response.js</span>
+            </div>
+          </div>
+        </div>
+        <p><strong>Mutation.createUser.pipeline.json</strong></p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{
+  <span class="key">"functions"</span>: [
+    { <span class="key">"name"</span>: <span class="str">"ValidateEmail"</span>, <span class="key">"dataSource"</span>: <span class="str">"NONE"</span> },
+    { <span class="key">"name"</span>: <span class="str">"SaveUser"</span>, <span class="key">"dataSource"</span>: <span class="str">"User"</span> }
+  ]
+}</pre></div>
+        <p><strong>functions/ValidateEmail.request.js</strong></p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">request</span>(ctx) {
+  <span class="cm">// Guardar en stash para las funciones siguientes</span>
+  ctx.stash.email = ctx.arguments.email;
+  ctx.stash.validatedAt = <span class="str">'2024-01-01T00:00:00Z'</span>;
+  <span class="kw">if</span> (!ctx.arguments.email.includes(<span class="str">'@'</span>)) {
+    $util.error(<span class="str">'Invalid email format'</span>, <span class="str">'ValidationError'</span>);
+  }
+  <span class="kw">return</span> {};
+}
+
+<span class="kw">export function</span> <span class="fn">response</span>(ctx) {
+  <span class="kw">return</span> { validated: <span class="kw">true</span> };
+}</pre></div>
+        <p><strong>functions/SaveUser.request.js</strong></p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">request</span>(ctx) {
+  <span class="cm">// ctx.prev.result = resultado de ValidateEmail</span>
+  <span class="kw">return</span> {
+    operation: <span class="str">'PutItem'</span>,
+    key: { id: { S: $util.autoId() } },
+    attributeValues: {
+      name: { S: ctx.arguments.name },
+      email: { S: ctx.stash.email },
+      role: { S: ctx.arguments.role || <span class="str">'user'</span> },
+      status: { S: <span class="str">'active'</span> },
+    },
+  };
+}
+
+<span class="kw">export function</span> <span class="fn">response</span>(ctx) {
+  <span class="kw">return</span> ctx.result;
+}</pre></div>
+      </div>
+    </div>
+
+    <div class="step" id="s15">
+      <div class="step-head" onclick="toggleStep('s15')">
+        <div class="step-check" onclick="checkStep(event,'s15')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Ejecutar el pipeline<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>En Resolver Runner:</p>
+        <ul style="color:var(--muted);font-size:13px;margin:8px 0 8px 16px;line-height:2;">
+          <li><strong style="color:var(--text)">Type.Field:</strong> <code>Mutation.createUser</code></li>
+          <li><strong style="color:var(--text)">Arguments:</strong></li>
+        </ul>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{ <span class="key">"name"</span>: <span class="str">"Pedro Ruiz"</span>, <span class="key">"email"</span>: <span class="str">"pedro@example.com"</span>, <span class="key">"role"</span>: <span class="str">"admin"</span> }</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Trace esperado en el panel</div>
+          <p>
+            <code>[ValidateEmail → REQUEST]</code> — retorna {}<br>
+            <code>[ValidateEmail → RESPONSE]</code> — retorna { validated: true }<br>
+            <code>[SaveUser → REQUEST]</code> — PutItem con id autogenerado<br>
+            <code>[SaveUser → RESPONSE]</code> — el usuario creado<br>
+            Respuesta final: el objeto User con el id generado
+          </p>
+        </div>
+        <p>Ahora prueba con email inválido:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{ <span class="key">"name"</span>: <span class="str">"Bad User"</span>, <span class="key">"email"</span>: <span class="str">"no-es-un-email"</span> }</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar — error en función 1</div>
+          <p>El trace muestra <code>[ValidateEmail → ERROR]</code> con mensaje <code>Invalid email format</code>. SaveUser NO se ejecuta. El pipeline se detiene en la primera función fallida.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 7 — DYNAMODB OPERATIONS
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">7</div>
+      <div><h2>Operaciones DynamoDB completas</h2><div class="section-desc">UpdateExpression, paginación, composite keys</div></div>
+    </div>
+
+    <div class="step" id="s16">
+      <div class="step-head" onclick="toggleStep('s16')">
+        <div class="step-check" onclick="checkStep(event,'s16')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">UpdateItem con UpdateExpression<span class="step-tag tag-code">Código</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Crea <strong>Mutation.updateUserStatus.request.js</strong>:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">request</span>(ctx) {
+  <span class="kw">return</span> {
+    operation: <span class="str">'UpdateItem'</span>,
+    key: { id: { S: ctx.arguments.id } },
+    update: {
+      expression: <span class="str">'SET #st = :status'</span>,
+      expressionNames: { <span class="str">'#st'</span>: <span class="str">'status'</span> },
+      expressionValues: { <span class="str">':status'</span>: { S: ctx.arguments.status } },
+    },
+  };
+}
+
+<span class="kw">export function</span> <span class="fn">response</span>(ctx) {
+  <span class="kw">return</span> ctx.result;
+}</pre></div>
+        <p>En Resolver Runner con:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{ <span class="key">"id"</span>: <span class="str">"usr-003"</span>, <span class="key">"status"</span>: <span class="str">"active"</span> }</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>El usuario usr-003 (Laura) ahora tiene <code>status: "active"</code>. Corre <code>Query.getUsersByStatus</code> de nuevo con <code>"status": "active"</code> — ahora debe devolver los 3 usuarios.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s17">
+      <div class="step-head" onclick="toggleStep('s17')">
+        <div class="step-check" onclick="checkStep(event,'s17')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Paginación con limit + nextToken<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Crea <strong>Query.listUsers.request.js</strong> con soporte de paginación:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export function</span> <span class="fn">request</span>(ctx) {
+  <span class="kw">return</span> {
+    operation: <span class="str">'Scan'</span>,
+    limit: ctx.arguments.limit || <span class="num">2</span>,
+    nextToken: ctx.arguments.nextToken || <span class="kw">null</span>,
+  };
+}</pre></div>
+        <p>En el Resolver Runner usa <code>{ "limit": 2 }</code>. El resultado devuelve 2 usuarios y un <code>nextToken</code>. Pega ese token como argumento para obtener la siguiente página.</p>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>Página 1: 2 items + <code>nextToken: "MQ=="</code> (o similar en base64).<br>Página 2 con ese nextToken: 1 item + <code>nextToken: null</code> (fin de datos).</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 8 — MOCK DATA
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">8</div>
+      <div><h2>Mock Data &amp; Hot Reload</h2><div class="section-desc">Recargar datos sin reiniciar el servidor</div></div>
+    </div>
+
+    <div class="step" id="s18">
+      <div class="step-head" onclick="toggleStep('s18')">
+        <div class="step-check" onclick="checkStep(event,'s18')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Probar ↺ Reload Data<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>1. Ejecuta <code>Mutation.deleteUser</code> para eliminar usr-001.<br>
+        2. Verifica con <code>Query.getUser</code> que no existe.<br>
+        3. Haz clic en el botón <strong>↺ Reload Data</strong> del panel.<br>
+        4. Ejecuta <code>Query.getUser</code> nuevamente.</p>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>Después del reload, usr-001 aparece de nuevo. El banner del panel muestra <code>✓ Mock data reloaded</code> en azul.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s19">
+      <div class="step-head" onclick="toggleStep('s19')">
+        <div class="step-check" onclick="checkStep(event,'s19')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Probar AWS: Generate Mock Data from CDK<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Corre <code>cdk synth</code> en tu proyecto para generar <code>cdk.out/</code>. Luego ejecuta desde el Command Palette:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>AWS: Generate Mock Data from CDK</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>La extensión lee <code>cdk.out/*.template.json</code>, encuentra las tablas DynamoDB y genera un <code>mock-data.json</code> con la estructura de keys correcta. El archivo se abre en el editor y los datos se cargan automáticamente.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 9 — HOT RELOAD SCHEMA
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">9</div>
+      <div><h2>Hot Reload de Schema y Resolvers</h2><div class="section-desc">Verificar que los cambios se reflejan sin reiniciar</div></div>
+    </div>
+
+    <div class="step" id="s20">
+      <div class="step-head" onclick="toggleStep('s20')">
+        <div class="step-check" onclick="checkStep(event,'s20')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Modificar un resolver en caliente<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Con el servidor corriendo, edita cualquier resolver (por ejemplo cambia <code>'active'</code> por un valor distinto en SaveUser) y guarda el archivo.</p>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>En la pestaña <strong>Schema</strong> del panel aparece el badge <code>↻ reloaded</code> en verde por 3 segundos. Las ejecuciones posteriores usan el resolver nuevo sin necesidad de reiniciar el servidor.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 10 — CDK PREFLIGHT
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">10</div>
+      <div><h2>CDK Preflight &amp; Diff</h2><div class="section-desc">Validar el stack antes de hacer deploy</div></div>
+    </div>
+
+    <div class="step" id="s21">
+      <div class="step-head" onclick="toggleStep('s21')">
+        <div class="step-check" onclick="checkStep(event,'s21')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Validate Stack Intent<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Después de un <code>cdk synth</code>, ejecuta:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>AWS: Validate Stack Intent (cdk.out)</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>Abre un panel con findings agrupados por severidad (Critical → Low) y un <strong>Confidence Score 0–100</strong> con label: Ready to Deploy / Review Needed / etc. Cero findings críticos en un proyecto limpio.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s22">
+      <div class="step-head" onclick="toggleStep('s22')">
+        <div class="step-check" onclick="checkStep(event,'s22')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Validate Environment Variables<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>AWS: Validate Environment Variables</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>Lista cada Lambda con sus env vars clasificadas: <code>static</code> (resuelta), <code>ssm</code> (necesita cloud), <code>secret</code>, <code>token</code> (CDK intrínseco). Si hay SSM refs no resueltas, sugiere el snippet para <code>.env.local</code>.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s23">
+      <div class="step-head" onclick="toggleStep('s23')">
+        <div class="step-check" onclick="checkStep(event,'s23')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">CDK Diff Explainer<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Cambia algo en tu stack CDK (por ejemplo agrega un env var a una Lambda) y ejecuta:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>AWS: Run CDK Diff Explainer</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>Cada cambio tiene: tipo de recurso, nivel de riesgo (🔴 Critical / 🟠 High / 🟡 Medium / 🟢 Low), explicación en lenguaje natural, y recomendación. El botón "Export Markdown" genera el reporte para PR review.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 11 — LAMBDA DEBUG (opcional)
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">11</div>
+      <div><h2>Lambda Debugging (si tienes Lambda data sources)</h2><div class="section-desc">Adjuntar VS Code debugger a un handler local</div></div>
+    </div>
+
+    <div class="step" id="s24">
+      <div class="step-head" onclick="toggleStep('s24')">
+        <div class="step-check" onclick="checkStep(event,'s24')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Configurar un Lambda handler<span class="step-tag tag-config">Config</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>En <strong>.vscode/settings.json</strong>:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>{
+  <span class="key">"awsToolkit.appsync.lambdaHandlers"</span>: {
+    <span class="key">"UserLambdaDS"</span>: <span class="str">"src/handlers/users.ts#handler"</span>
+  },
+  <span class="key">"awsToolkit.appsync.lambdaDebugPort"</span>: <span class="num">9229</span>
+}</pre></div>
+        <p>Crea el handler en <strong>src/handlers/users.ts</strong>:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre><span class="kw">export async function</span> <span class="fn">handler</span>(event: <span class="kw">any</span>) {
+  <span class="cm">// Pon un breakpoint aquí ↓</span>
+  <span class="kw">const</span> { arguments: args, identity } = event;
+  <span class="kw">return</span> { id: args.id, name: <span class="str">'From Lambda'</span>, identity };
+}</pre></div>
+        <div class="info-box">
+          <div class="expect-title">ℹ Flujo de debug</div>
+          <p>1. Pon un breakpoint en el handler.<br>
+          2. En Resolver Runner selecciona el resolver que usa <code>UserLambdaDS</code>.<br>
+          3. Haz clic en <strong>🐛 Debug Lambda</strong>.<br>
+          4. VS Code adjunta automáticamente el debugger — la ejecución pausa en el breakpoint.<br>
+          5. Cuando continues (<code>F5</code>), el resultado aparece en el trace del panel.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════
+       SECCIÓN 12 — SERVICE MAP
+  ══════════════════════════════════════════════ -->
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">12</div>
+      <div><h2>AWS Service Map</h2><div class="section-desc">Mapa visual interactivo de servicios generado desde cdk.out — React Flow</div></div>
+    </div>
+
+    <div class="step" id="s25">
+      <div class="step-head" onclick="toggleStep('s25')">
+        <div class="step-check" onclick="checkStep(event,'s25')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Generar el mapa de servicios<span class="step-tag tag-action">Acción</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Requiere que <code>cdk.out/</code> exista. Si no lo tienes, corre primero:</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>cdk synth</pre></div>
+        <p>Luego ejecuta desde el Command Palette (<strong>Cmd+Shift+P</strong>):</p>
+        <div class="code-wrap"><button class="copy-btn" onclick="copyCode(this)">Copiar</button>
+<pre>AWS: Generate Service Map</pre></div>
+        <div class="expect">
+          <div class="expect-title">✓ Qué esperar</div>
+          <p>
+            Se abre el panel <strong>AWS Service Map</strong> con un diagrama React Flow interactivo:<br>
+            • Un <strong>tab por stack CDK</strong> (uno por cada <code>*.template.json</code> en <code>cdk.out/</code>).<br>
+            • Nodos auto-posicionados de izquierda a derecha por tipo de servicio.<br>
+            • Conexiones con etiquetas que indican el tipo de relación.<br>
+            • Leyenda dinámica en la barra superior con solo los servicios presentes en el stack.
+          </p>
+        </div>
+        <div class="warn-box">
+          <div class="expect-title">⚠ Si no aparecen nodos</div>
+          <p>La extensión lee <code>cdk.out/*.template.json</code> — no el código CDK fuente. Verifica que <code>cdk synth</code> haya completado sin errores y que el directorio no esté vacío.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="s26">
+      <div class="step-head" onclick="toggleStep('s26')">
+        <div class="step-check" onclick="checkStep(event,'s26')"><svg width="10" height="8" viewBox="0 0 10 8"><path d="M1 4l3 3 5-6" stroke="#0d1117" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg></div>
+        <div><div class="step-title">Verificar conexiones y explorar el mapa<span class="step-tag tag-expect">Verificar</span></div></div>
+      </div>
+      <div class="step-body">
+        <p>Para el stack de este proyecto (AppSync + Lambda + DynamoDB + Cognito), el mapa debería mostrar este flujo:</p>
+        <div style="display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin:12px 0;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:14px 16px;">
+          <span style="padding:3px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#1e1b4b;border:1px solid #818cf8;color:#818cf8;">Cognito</span>
+          <span style="font-size:11px;color:#6b7280;white-space:nowrap;">──auth──▶</span>
+          <span style="padding:3px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#0f2a4a;border:1px solid #3b82f6;color:#3b82f6;">AppSync</span>
+          <span style="font-size:11px;color:#6b7280;white-space:nowrap;">──datasource──▶</span>
+          <span style="padding:3px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#1a1f2e;border:1px dashed #4b5563;color:#9ca3af;">DataSource</span>
+          <span style="font-size:11px;color:#6b7280;white-space:nowrap;">──invokes──▶</span>
+          <span style="padding:3px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#2d1500;border:1px solid #f97316;color:#f97316;">Lambda</span>
+          <span style="font-size:11px;color:#6b7280;white-space:nowrap;">──env ref──▶</span>
+          <span style="padding:3px 9px;border-radius:4px;font-size:11px;font-weight:700;background:#052e16;border:1px solid #22c55e;color:#22c55e;">DynamoDB</span>
+        </div>
+        <div class="info-box">
+          <div class="expect-title">ℹ Conexiones que detecta automáticamente</div>
+          <p>
+            <strong style="color:var(--text)">datasource</strong> — AppSync DataSource con <code>ApiId: {Ref: ...}</code><br>
+            <strong style="color:var(--text)">invokes</strong> — DataSource tipo <code>AWS_LAMBDA</code> con <code>LambdaFunctionArn</code><br>
+            <strong style="color:var(--text)">reads/writes</strong> — DataSource tipo <code>AMAZON_DYNAMODB</code> con <code>TableName</code><br>
+            <strong style="color:var(--text)">auth</strong> — AppSync con <code>UserPoolConfig.UserPoolId</code><br>
+            <strong style="color:var(--text)">triggers</strong> — <code>AWS::Lambda::EventSourceMapping</code> (SQS/SNS → Lambda)<br>
+            <strong style="color:var(--text)">env ref</strong> — Lambda con referencias a tablas/colas en <code>Environment.Variables</code>
+          </p>
+        </div>
+        <p style="margin-top:10px;">Prueba la interactividad del panel:</p>
+        <ul style="color:var(--muted);font-size:13px;margin:8px 0 8px 16px;line-height:2.2;">
+          <li><strong style="color:var(--text)">Arrastrar nodos</strong> — reorganiza el layout a tu gusto</li>
+          <li><strong style="color:var(--text)">Scroll / pinch</strong> — zoom in/out</li>
+          <li><strong style="color:var(--text)">MiniMap</strong> (esquina inf. derecha) — navegación rápida en stacks grandes</li>
+          <li><strong style="color:var(--text)">Controls</strong> (esquina inf. izquierda) — fit view, zoom buttons</li>
+          <li><strong style="color:var(--text)">Tabs</strong> — cambia entre stacks CDK si tienes más de uno</li>
+        </ul>
+        <div class="expect">
+          <div class="expect-title">✓ Edges animados</div>
+          <p>Las relaciones <code>triggers</code> e <code>invokes</code> muestran un edge animado (línea de puntos en movimiento) para distinguir flujos de datos activos de referencias de configuración.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="divider" />
+
+  <div class="section">
+    <div class="section-header">
+      <div class="section-num active">✓</div>
+      <div><h2>Resumen de cobertura actual</h2></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="expect"><div class="expect-title">✓ Cubierto</div>
+        <p>JS / VTL / Lambda resolvers<br>Pipeline resolvers (stash, prev.result)<br>DynamoDB: GetItem, PutItem, UpdateItem, DeleteItem<br>FilterExpression, KeyConditionExpression<br>UpdateExpression (SET/REMOVE/ADD)<br>GSI simulation (query por cualquier atributo)<br>Composite keys (pk+sk)<br>Paginación (limit + nextToken)<br>Mock Data hot reload<br>Schema hot reload<br>Multi-identity runner<br>CDK Preflight + Confidence Score<br>Env Var classification<br>CDK Diff risk analysis<br>AWS Service Map (React Flow)</p>
+      </div>
+      <div class="warn-box"><div class="expect-title">⚠ No cubierto (reportar si encuentras)</div>
+        <p>BatchGetItem / BatchWriteItem<br>TransactGetItems / TransactWriteItems<br>Subscriptions (WebSocket)<br>@auth directive enforcement<br>Lambda Layers locales<br>RDS / HTTP / EventBridge data sources</p>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  AWS Serverless Offline Toolkit v0.1.9 &nbsp;·&nbsp;
+  <a href="https://marketplace.visualstudio.com/items?itemName=ec-dev-studio.aws-serverless-offline-toolkit" style="color:var(--accent2);">Marketplace</a>
+  &nbsp;·&nbsp;
+  <a href="https://github.com/enriquecordero/aws-serverless-offline-toolkit" style="color:var(--accent2);">GitHub</a>
+</footer>
+
+<script>
+  const KEY = 'toolkit-test-guide-v2';
+  let checked = JSON.parse(localStorage.getItem(KEY) || '{}');
+
+  function save() { localStorage.setItem(KEY, JSON.stringify(checked)); }
+
+  function updateProgress() {
+    const steps = document.querySelectorAll('.step');
+    const done = document.querySelectorAll('.step.done').length;
+    const total = steps.length;
+    document.getElementById('progressLabel').textContent = done + ' / ' + total + ' pasos';
+    document.getElementById('progressFill').style.width = (total ? (done / total * 100) : 0) + '%';
+  }
+
+  function checkStep(e, id) {
+    e.stopPropagation();
+    const el = document.getElementById(id);
+    const isDone = el.classList.toggle('done');
+    checked[id] = isDone;
+    save();
+    updateProgress();
+  }
+
+  function toggleStep(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle('open');
+  }
+
+  function copyCode(btn) {
+    const pre = btn.nextElementSibling;
+    const text = pre.textContent;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.textContent = '✓ Copiado';
+      btn.classList.add('copied');
+      setTimeout(() => { btn.textContent = 'Copiar'; btn.classList.remove('copied'); }, 2000);
+    });
+  }
+
+  // Restore state
+  document.querySelectorAll('.step').forEach(el => {
+    if (checked[el.id]) el.classList.add('done');
+  });
+  updateProgress();
+
+  // Open first incomplete step automatically
+  const firstOpen = Array.from(document.querySelectorAll('.step')).find(el => !el.classList.contains('done'));
+  if (firstOpen) firstOpen.classList.add('open');
+</script>
+</body>
+</html>

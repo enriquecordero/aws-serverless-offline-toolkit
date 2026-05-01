@@ -43,6 +43,16 @@ Validates synthesized `cdk.out` templates before any deployment — no AWS crede
 - Displays a **confidence score** (0–100) with a readiness label: *Ready to Deploy*, *Minor Issues*, *Review Needed*, *Significant Issues*, or *Not Ready*.
 - One command runs `cdk synth` and validation in a single flow.
 
+### AWS Service Map
+
+Reads `cdk.out/*.template.json` and generates an interactive React Flow diagram of every AWS service in the stack and how they connect — no AWS credentials required.
+
+- Detects AppSync APIs, Lambda functions, DynamoDB tables, Cognito User Pools, SQS queues, SNS topics, EventBridge rules, and API Gateway.
+- Resolves CloudFormation `Ref` and `Fn::GetAtt` references to trace real connections: DataSource → Lambda/DynamoDB, Cognito → AppSync auth, SQS/SNS → Lambda event source mappings, Lambda env var refs, EventBridge targets.
+- Nodes auto-arranged left-to-right by service type with color-coded categories.
+- Multiple CDK stacks shown as tabs. Animated edges for `triggers` and `invokes` relationships.
+- Interactive: drag nodes, zoom, minimap, fit-view controls.
+
 ### Env Var Preflight
 
 Scans every Lambda function in `cdk.out` and classifies its environment variables before deployment.
@@ -67,6 +77,7 @@ Open the Command Palette (`Cmd+Shift+P`) and run:
 | `AWS: Run CDK Diff Explainer` | Analyze `cdk diff` with risk classification |
 | `AWS: Validate Stack Intent (cdk.out)` | Run preflight checks from synthesized templates |
 | `AWS: Synth and Validate Stack Intent` | Run `cdk synth` then preflight in one flow |
+| `AWS: Generate Service Map` | Open interactive React Flow diagram of all stack services |
 | `AWS: Validate Environment Variables` | Scan Lambda env vars from `cdk.out` |
 
 ## Quick Start

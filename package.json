@@ -166,6 +166,9 @@
     "bundle": "node esbuild.js",
     "bundle:prod": "node esbuild.js --production",
     "watch": "node esbuild.js --watch",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "test:offline": "node scripts/run-offline-tests.js",
     "test:offline:example": "node scripts/run-offline-tests.js --schema example/schema.graphql --mock example/mock-data.json --suite scripts/test-suites/example-suite.json",
     "test:offline:ci": "node scripts/run-ci-offline-tests.js",
@@ -174,7 +177,7 @@
     "publish:vsce": "vsce publish",
     "publish:patch": "npm run release:patch",
     "publish:minor": "npm run release:minor",
-    "prepublish:check": "npm run compile && npm run test:offline:example",
+    "prepublish:check": "npm run compile && npm run test && npm run test:offline:example",
     "release": "node scripts/release.js",
     "release:patch": "node scripts/release.js patch",
     "release:minor": "node scripts/release.js minor"
@@ -199,9 +202,11 @@
     "@types/vscode": "^1.85.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
+    "@vitest/coverage-v8": "^2.1.9",
     "@vscode/vsce": "^3.6.2",
     "esbuild": "^0.28.0",
     "eslint": "^8.56.0",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^2.1.9"
   }
 }

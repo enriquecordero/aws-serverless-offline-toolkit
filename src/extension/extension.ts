@@ -65,7 +65,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   // ── Service Map ──────────────────────────────────────────────────────────
   context.subscriptions.push(
-    vscode.commands.registerCommand('awsToolkit.generateServiceMap', () => ServiceMapPanel.createOrShow())
+    vscode.commands.registerCommand('awsToolkit.generateServiceMap', () => ServiceMapPanel.createOrShow(context.extensionUri))
   );
 
   // ── Status bar buttons ───────────────────────────────────────────────────

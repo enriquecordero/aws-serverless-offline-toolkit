@@ -1,0 +1,164 @@
+{
+  "schemaVersion": "1",
+  "rules": [
+    {
+      "id": "S3_DELETE",
+      "priority": 100,
+      "conditions": { "changeType": "deleted", "category": "S3" },
+      "result": {
+        "level": "critical",
+        "explanation": "S3 Bucket \"{logicalId}\" is being deleted. This may cause permanent data loss.",
+        "recommendation": "Verify the bucket is empty or has a RemovalPolicy.RETAIN. Confirm with the team before deploying."
+      }
+    },
+    {
+      "id": "DYNAMODB_REPLACE",
+      "priority": 101,
+      "conditions": { "changeType": "replaced", "category": "DynamoDB" },
+      "result": {
+        "level": "critical",
+        "explanation": "DynamoDB Table \"{logicalId}\" is being replaced. Replacement destroys all existing data.",
+        "recommendation": "Export the table data first. Consider using a blue/green strategy or adding a RemovalPolicy."
+      }
+    },
+    {
+      "id": "IAM_WILDCARD",
+      "priority": 102,
+      "conditions": { "category": "IAM", "rawLineContains": "*" },
+      "result": {
+        "level": "critical",
+        "explanation": "IAM resource \"{logicalId}\" contains wildcard (*) permissions, granting excessive access.",
+        "recommendation": "Replace wildcards with specific actions and resources. Use least-privilege IAM policies."
+      }
+    },
+    {
+      "id": "KMS_MODIFY",
+      "priority": 103,
+      "conditions": { "category": "KMS", "changeTypeNot": "added" },
+      "result": {
+        "level": "critical",
+        "explanation": "KMS Key \"{logicalId}\" policy is being modified or deleted. This can break encryption and make data unreadable.",
+        "recommendation": "Review key policy changes carefully. Ensure all encrypted resources retain access."
+      }
+    },
+    {
+      "id": "S3_PUBLIC_ACCESS",
+      "priority": 104,
+      "conditions": { "category": "S3", "rawLineContains": "public" },
+      "result": {
+        "level": "critical",
+        "explanation": "S3 Bucket \"{logicalId}\" may be gaining public access. This could expose sensitive data.",
+        "recommendation": "Ensure S3 Block Public Access is enabled unless this bucket is intentionally public (e.g., static website)."
+      }
+    },
+    {
+      "id": "SECURITY_GROUP_OPEN",
+      "priority": 105,
+      "conditions": { "category": "SecurityGroup", "rawLineContains": "0.0.0.0/0" },
+      "result": {
+        "level": "critical",
+        "explanation": "Security Group \"{logicalId}\" allows traffic from 0.0.0.0/0 (open to the internet).",
+        "recommendation": "Restrict ingress rules to known IP ranges or VPC CIDRs."
+      }
+    },
+    {
+      "id": "DYNAMODB_DELETE",
+      "priority": 200,
+      "conditions": { "changeType": "deleted", "category": "DynamoDB" },
+      "result": {
+        "level": "high",
+        "explanation": "DynamoDB Table \"{logicalId}\" is being deleted. All data will be lost.",
+        "recommendation": "Back up the table before deleting. Set RemovalPolicy.RETAIN for production tables."
+      }
+    },
+    {
+      "id": "APPSYNC_MODIFY",
+      "priority": 201,
+      "conditions": { "category": "AppSync", "changeTypeNot": "added" },
+      "result": {
+        "level": "high",
+        "explanation": "AppSync resource \"{logicalId}\" is being modified. Auth mode changes can break existing API clients.",
+        "recommendation": "Review auth mode and resolver changes. Test API clients after deployment."
+      }
+    },
+    {
+      "id": "APIGATEWAY_AUTH",
+      "priority": 202,
+      "conditions": { "category": "ApiGateway", "rawLineContains": "auth" },
+      "result": {
+        "level": "high",
+        "explanation": "API Gateway \"{logicalId}\" authorization config is being changed. Endpoints may become exposed.",
+        "recommendation": "Confirm the desired auth configuration and test endpoints after deployment."
+      }
+    },
+    {
+      "id": "COGNITO_MODIFY",
+      "priority": 203,
+      "conditions": { "category": "Cognito", "changeTypeNot": "added" },
+      "result": {
+        "level": "high",
+        "explanation": "Cognito resource \"{logicalId}\" is being modified. User pool changes can affect authentication flows.",
+        "recommendation": "Test login/signup flows after deployment. Some changes require user re-authentication."
+      }
+    },
+    {
+      "id": "LAMBDA_ENV_CHANGE",
+      "priority": 204,
+      "conditions": { "category": "Lambda", "rawLineContains": "environment" },
+      "result": {
+        "level": "high",
+        "explanation": "Lambda function \"{logicalId}\" environment variables are changing. Secret or config values may be affected.",
+        "recommendation": "Verify that new environment variables are correct and secrets are properly managed in SSM or Secrets Manager."
+      }
+    },
+    {
+      "id": "GENERIC_DELETE",
+      "priority": 205,
+      "conditions": { "changeType": "deleted", "categoryNot": "Other" },
+      "result": {
+        "level": "high",
+        "explanation": "{category} resource \"{logicalId}\" is being deleted. Dependent services may be affected.",
+        "recommendation": "Confirm no other services depend on this resource before deploying."
+      }
+    },
+    {
+      "id": "IAM_MODIFY",
+      "priority": 300,
+      "conditions": { "category": "IAM" },
+      "result": {
+        "level": "medium",
+        "explanation": "IAM resource \"{logicalId}\" is being {changeType}. Permission changes can affect service access.",
+        "recommendation": "Review the diff carefully. Ensure least-privilege is maintained."
+      }
+    },
+    {
+      "id": "LAMBDA_CODE_CHANGE",
+      "priority": 301,
+      "conditions": { "category": "Lambda", "changeType": "modified" },
+      "result": {
+        "level": "medium",
+        "explanation": "Lambda function \"{logicalId}\" is being updated.",
+        "recommendation": "Verify the new code is tested. Consider using Lambda aliases for gradual deployment."
+      }
+    },
+    {
+      "id": "GENERIC_REPLACE",
+      "priority": 302,
+      "conditions": { "changeType": "replaced" },
+      "result": {
+        "level": "medium",
+        "explanation": "Resource \"{logicalId}\" ({resourceType}) is being replaced, causing downtime during deployment.",
+        "recommendation": "Replacing a resource causes it to be deleted and re-created. Plan for downtime."
+      }
+    },
+    {
+      "id": "NEW_RESOURCE",
+      "priority": 400,
+      "conditions": { "changeType": "added" },
+      "result": {
+        "level": "low",
+        "explanation": "New {category} resource \"{logicalId}\" will be created."
+      }
+    }
+  ]
+}

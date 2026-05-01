@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Type-check, unit tests, offline integration tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # ESLint config is missing on main; re-enable once eslint.config.js is added.
+      # - name: Lint
+      #   run: npm run lint
+
+      - name: Type-check (extension)
+        run: npm run compile
+
+      - name: Unit tests with coverage
+        run: npm run test:coverage
+
+      - name: Offline integration smoke test
+        run: npm run test:offline:example
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ github.run_id }}
+          path: coverage/
+          retention-days: 7

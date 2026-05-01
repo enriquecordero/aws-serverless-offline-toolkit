@@ -4,4 +4,5 @@
 node_modules/
 *.vsix
 out/
+coverage/
 .DS_Store
